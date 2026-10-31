@@ -1,0 +1,25 @@
+{
+  "manifestVersion": "1.0.0",
+  "dataClassification": "SYNTHETIC_BENCHMARK",
+  "disclaimer": "This dataset uses synthetic profiles and purchasing histories benchmarked against urban Multan retail patterns. Executed in Snowflake warehouse: displays BOTH 'Live Snowflake query' and 'Synthetic data'.",
+  "sources": [
+    {
+      "sourceName": "MULTAN_URBAN_SYNTHETIC_CENSUS_2026",
+      "geography": "Multan Urban Division, Punjab, Pakistan",
+      "releaseDate": "2026-01-15",
+      "grain": "Neighborhood Year",
+      "license": "ODC-BY-1.0",
+      "status": "SYNTHETIC",
+      "attributes": ["neighborhood_key", "profile_year", "households"]
+    },
+    {
+      "sourceName": "MULTAN_RETAIL_SURPLUS_PANEL_2026",
+      "geography": "Multan Corner Convenience Stores (Gulgasht, Bohar Gate)",
+      "releaseDate": "2026-10-01",
+      "grain": "Store Produce Date",
+      "license": "Proprietary Research (Ahmad)",
+      "status": "SYNTHETIC",
+      "attributes": ["store_key", "produce", "market_date", "sold_g", "unfilled_request_g"]
+    }
+  ]
+}

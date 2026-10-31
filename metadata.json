@@ -1,0 +1,7 @@
+{
+  "name": "MandiLink - Multan Produce Exchange",
+  "description": "Hyperlocal surplus-produce marketplace connecting Multan corner stores with community growers to eliminate urban fresh food deserts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
