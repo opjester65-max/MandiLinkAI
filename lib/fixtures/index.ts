@@ -133,7 +133,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     askPaisaKg: 12000, // PKR 120/kg
     pickupLat: 30.2455,
     pickupLng: 71.4718,
-    pickupUntil: '2026-10-31T18:00:00.000Z',
+    pickupUntil: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     status: 'open',
     version: 1,
     growerName: 'Chenab Community Garden (Bibi Fatima)',
@@ -148,7 +148,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     askPaisaKg: 9000, // PKR 90/kg
     pickupLat: 30.2455,
     pickupLng: 71.4718,
-    pickupUntil: '2026-10-31T16:00:00.000Z',
+    pickupUntil: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     status: 'open',
     version: 1,
     growerName: 'Chenab Community Garden (Bibi Fatima)',
@@ -163,7 +163,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     askPaisaKg: 14000, // PKR 140/kg
     pickupLat: 30.2420,
     pickupLng: 71.4760,
-    pickupUntil: '2026-11-01T12:00:00.000Z',
+    pickupUntil: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
     status: 'open',
     version: 1,
     growerName: 'Chenab Community Garden (Bibi Fatima)',

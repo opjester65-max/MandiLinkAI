@@ -204,38 +204,55 @@ export function SupplyMap({
           )}
 
           {/* Plotted Stores (Amber Deficit Pins) */}
-          {gaps.map((gap) => {
-            // Gulgasht corner store coords or lookup
-            const coords = gap.storeName.includes('Gulgasht')
-              ? { lat: 30.2251, lng: 71.4935 }
-              : { lat: 30.1925, lng: 71.5034 };
-            const pt = projectToSvg(coords.lat, coords.lng);
+          {(() => {
+            const activeProduce = selectedMatch?.gap.produce ?? listings[0]?.produce;
+            const storeMap = new Map<string, DeficitGap>();
+            for (const gap of gaps) {
+              const existing = storeMap.get(gap.storeId);
+              if (!existing) {
+                storeMap.set(gap.storeId, gap);
+              } else if (activeProduce && gap.produce === activeProduce) {
+                storeMap.set(gap.storeId, gap);
+              } else if (
+                (!activeProduce || existing.produce !== activeProduce) &&
+                gap.gapKg > existing.gapKg
+              ) {
+                storeMap.set(gap.storeId, gap);
+              }
+            }
+            return Array.from(storeMap.values()).map((gap) => {
+              // Gulgasht corner store coords or lookup
+              const coords = gap.storeName.includes('Gulgasht')
+                ? { lat: 30.2251, lng: 71.4935 }
+                : { lat: 30.1925, lng: 71.5034 };
+              const pt = projectToSvg(coords.lat, coords.lng);
 
-            return (
-              <g
-                key={gap.storeId}
-                transform={`translate(${pt.x}, ${pt.y})`}
-                className="cursor-pointer group"
-                onClick={() => {
-                  const match = matches.find((m) => m.gap.storeId === gap.storeId);
-                  if (match) onSelectMatch(match.id);
-                }}
-              >
-                {/* Pulse ring for critical deficit */}
-                <circle r="14" fill="#F59E0B" fillOpacity="0.3" className="animate-ping" />
-                <circle r="9" fill="#D97706" stroke="#FFFFFF" strokeWidth="2.5" />
-                <circle r="3.5" fill="#FFFFFF" />
-                {/* Store label tag */}
-                <rect x="12" y="-12" width="125" height="22" rx="4" fill="#FFFFFF" stroke="#E2DCD0" strokeWidth="1" />
-                <text x="18" y="3" fill="#1C1917" fontSize="10" fontWeight="bold">
-                  {gap.storeName}
-                </text>
-                <text x="18" y="24" fill="#B45309" fontSize="9" fontWeight="bold">
-                  Gap: {gap.gapKg} kg {gap.produce}
-                </text>
-              </g>
-            );
-          })}
+              return (
+                <g
+                  key={`${gap.storeId}-${gap.produce}-${gap.date}`}
+                  transform={`translate(${pt.x}, ${pt.y})`}
+                  className="cursor-pointer group"
+                  onClick={() => {
+                    const match = matches.find((m) => m.gap.storeId === gap.storeId);
+                    if (match) onSelectMatch(match.id);
+                  }}
+                >
+                  {/* Pulse ring for critical deficit */}
+                  <circle r="14" fill="#F59E0B" fillOpacity="0.3" className="animate-ping" />
+                  <circle r="9" fill="#D97706" stroke="#FFFFFF" strokeWidth="2.5" />
+                  <circle r="3.5" fill="#FFFFFF" />
+                  {/* Store label tag */}
+                  <rect x="12" y="-12" width="125" height="22" rx="4" fill="#FFFFFF" stroke="#E2DCD0" strokeWidth="1" />
+                  <text x="18" y="3" fill="#1C1917" fontSize="10" fontWeight="bold">
+                    {gap.storeName}
+                  </text>
+                  <text x="18" y="24" fill="#B45309" fontSize="9" fontWeight="bold">
+                    Gap: {gap.gapKg} kg {gap.produce}
+                  </text>
+                </g>
+              );
+            });
+          })()}
 
           {/* Plotted Grower Lots (Leaf Green Supply Pins) */}
           {listings.map((listing) => {

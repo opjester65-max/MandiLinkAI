@@ -6,8 +6,10 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function EvidenceDeskPage({
   onBackToMarket,
+  tourHighlightSignal = 0,
 }: {
   onBackToMarket?: () => void;
+  tourHighlightSignal?: number;
 }) {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -21,7 +23,7 @@ export default function EvidenceDeskPage({
         </button>
       </div>
 
-      <EvidenceDesk />
+      <EvidenceDesk tourHighlightSignal={tourHighlightSignal} />
     </div>
   );
 }

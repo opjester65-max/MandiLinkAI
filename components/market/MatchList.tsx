@@ -49,10 +49,10 @@ export function MatchList({
               key={match.id}
               role="listitem"
               onClick={() => onSelectMatch(match.id)}
-              className={`p-4 rounded-xl border transition-all cursor-pointer focus-within:ring-2 focus-within:ring-stone-900 ${
+              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer focus-within:ring-2 focus-within:ring-stone-900 ${
                 isSelected
                   ? 'bg-purple-50/40 border-[#4A154B] shadow-sm ring-1 ring-[#4A154B]'
-                  : 'bg-white border-stone-200 hover:border-stone-300 hover:shadow-xs'
+                  : 'bg-white border-stone-200 hover:border-stone-300 hover:-translate-y-0.5 hover:shadow-md'
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -62,12 +62,12 @@ export function MatchList({
                     <span className="text-sm font-bold text-stone-900 truncate">
                       {listing.growerName}
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                    <span className="text-xs text-emerald-900 font-semibold flex items-center gap-1 whitespace-nowrap">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
                       Grade A Verified
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-950 font-mono font-bold">
-                      {match.matchScore}% Match
+                    <span className="text-xs text-purple-900 font-mono tabular-nums font-bold whitespace-nowrap">
+                      · {match.matchScore}% Match
                     </span>
                   </div>
 

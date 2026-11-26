@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import {
   AcceptOfferRequestSchema,
   ApiErrorResponse,
@@ -244,7 +245,8 @@ export async function handleGradeUpload(
   imageBuffer: Buffer,
   localeStr: string = 'en-PK',
   actorId: string,
-  saveBytes: boolean = false
+  saveBytes: boolean = false,
+  filenameHint?: string
 ) {
   // Authenticate grower
   const actor = sandboxRepository.getCurrentUserAgent();
@@ -257,7 +259,7 @@ export async function handleGradeUpload(
 
   try {
     const { gradeImageWithGemma } = await import('../providers/gemmaGrade.ts');
-    const result = await gradeImageWithGemma(imageBuffer, locale, saveBytes);
+    const result = await gradeImageWithGemma(imageBuffer, locale, saveBytes, filenameHint);
 
     // Save grade record
     sandboxRepository.saveGrade({
@@ -273,7 +275,10 @@ export async function handleGradeUpload(
 
     return {
       status: 200,
-      body: makeSuccess(result.output, result.sanitizedReceipt.receiptStatus.toLowerCase() as any),
+      body: makeSuccess(
+        result.output,
+        result.sanitizedReceipt.receiptStatus === 'Live Gemini API' ? 'live' : 'sandbox'
+      ),
     };
   } catch (err: any) {
     const msg = err.message || '';
@@ -281,6 +286,31 @@ export async function handleGradeUpload(
       return { status: 400, body: makeError('INVALID_INPUT', msg.replace('INVALID_INPUT: ', '')) };
     }
     return { status: 500, body: makeError('DEPENDENCY_UNAVAILABLE', msg) };
+  }
+}
+
+export async function handleMarketStrategy(body: any) {
+  const date = typeof body?.date === 'string' ? body.date : '2026-10-31';
+  const produce =
+    body?.produce && ['tomato', 'spinach', 'guava'].includes(body.produce) ? body.produce : 'tomato';
+
+  try {
+    const market = sandboxRepository.getMarketData(produce, date);
+    const { matchSupplyWithDeficits } = await import('../matching/index.ts');
+    const matches = matchSupplyWithDeficits(market.listings, market.gaps);
+    const { generateSupplyChainStrategy } = await import('../providers/marketStrategist.ts');
+    const strategy = await generateSupplyChainStrategy({
+      date,
+      produce,
+      gaps: Array.isArray(body?.gaps) && body.gaps.length > 0 ? body.gaps : market.gaps,
+      matches: Array.isArray(body?.matches) && body.matches.length > 0 ? body.matches : matches,
+    });
+    return {
+      status: 200,
+      body: makeSuccess(strategy, strategy.executionMode === 'Live Gemini API' ? 'live' : 'sandbox'),
+    };
+  } catch (err: any) {
+    return { status: 500, body: makeError('DEPENDENCY_UNAVAILABLE', err.message) };
   }
 }
 
@@ -368,3 +398,158 @@ export async function handleGetTradeMessages(
     body: makeSuccess({ messages }),
   };
 }
+
+export async function handleWalletChallenge(body: any) {
+  if (!body.agentId || !body.walletPubkey || !body.domain) {
+    return { status: 400, body: makeError('INVALID_INPUT', 'agentId, walletPubkey, and domain are required') };
+  }
+  try {
+    const { createWalletChallenge } = await import('../providers/solanaRegistry.ts');
+    const challenge = createWalletChallenge(body.agentId, body.walletPubkey, body.domain);
+    return { status: 200, body: makeSuccess(challenge) };
+  } catch (err: any) {
+    return { status: 400, body: makeError('INVALID_INPUT', err.message) };
+  }
+}
+
+export async function handleWalletVerify(body: any) {
+  if (!body.nonce || !body.signature || !body.walletPubkey) {
+    return { status: 400, body: makeError('INVALID_INPUT', 'nonce, signature, and walletPubkey are required') };
+  }
+  try {
+    const { verifyWalletChallenge } = await import('../providers/solanaRegistry.ts');
+    const result = verifyWalletChallenge(body.nonce, body.signature, body.walletPubkey);
+    return { status: 200, body: makeSuccess(result) };
+  } catch (err: any) {
+    return { status: 400, body: makeError('INVALID_INPUT', err.message) };
+  }
+}
+
+export async function handleAgentProof(agentId: string) {
+  try {
+    const { getAgentReputationProof } = await import('../providers/solanaRegistry.ts');
+    const proof = getAgentReputationProof(agentId);
+    return { status: 200, body: makeSuccess(proof) };
+  } catch (err: any) {
+    return { status: 404, body: makeError('NOT_FOUND', err.message) };
+  }
+}
+
+export async function handleAgentMetadata(agentId: string) {
+  try {
+    const { getAgentReputationProof } = await import('../providers/solanaRegistry.ts');
+    const proof = getAgentReputationProof(agentId);
+    const metadata = {
+      standard: 'QuantuLabs-8004-v1',
+      agentId: proof.agentId,
+      name: proof.displayName,
+      role: proof.role,
+      pubkey: proof.walletPubkey,
+      accountPda: proof.accountPda,
+      reputationScore: proof.reputationScore,
+      cluster: 'devnet',
+      serviceEndpoints: {
+        market: '/api/market',
+        trades: '/api/trades',
+        proof: `/api/agents/${agentId}/proof`,
+      },
+    };
+    return { status: 200, body: metadata };
+  } catch (err: any) {
+    return { status: 404, body: makeError('NOT_FOUND', err.message) };
+  }
+}
+
+export async function handleRegistryPrepare(body: any, actorId: string) {
+  const { action, payload } = body;
+  if (!action || !['register', 'feedback'].includes(action)) {
+    return { status: 400, body: makeError('INVALID_INPUT', 'action must be "register" or "feedback"') };
+  }
+
+  try {
+    const { deriveAgentPda, deriveFeedbackPda, SOLANA_CONFIG } = await import('../providers/solanaRegistry.ts');
+    const intentId = crypto.randomUUID();
+
+    if (action === 'register') {
+      const { walletPubkey } = payload || {};
+      if (!walletPubkey) {
+        return { status: 400, body: makeError('INVALID_INPUT', 'Missing walletPubkey in registration payload') };
+      }
+      const { pda } = deriveAgentPda(walletPubkey);
+      const intentHash = crypto.createHash('sha256').update(`${actorId}:${walletPubkey}:${pda}`).digest('hex');
+      return {
+        status: 200,
+        body: makeSuccess({
+          intentId,
+          action,
+          actorId,
+          targetPda: pda,
+          programId: SOLANA_CONFIG.programId,
+          cluster: SOLANA_CONFIG.cluster,
+          intentHash,
+          instruction: 'RegisterAgentIdentity',
+          message: `Confirm registration for agent ${actorId} on Solana Devnet`,
+        }),
+      };
+    } else {
+      // Feedback
+      const { tradeId, rating, tag, subjectId } = payload || {};
+      if (!tradeId || !rating || !tag || !subjectId) {
+        return { status: 400, body: makeError('INVALID_INPUT', 'tradeId, subjectId, rating, and tag required') };
+      }
+      const { pda } = deriveFeedbackPda(tradeId);
+      const intentHash = crypto.createHash('sha256').update(`${tradeId}:${actorId}:${subjectId}:${rating}`).digest('hex');
+      return {
+        status: 200,
+        body: makeSuccess({
+          intentId,
+          action,
+          actorId,
+          targetPda: pda,
+          programId: SOLANA_CONFIG.programId,
+          cluster: SOLANA_CONFIG.cluster,
+          intentHash,
+          instruction: 'RecordTradeFeedback',
+          message: `Record ${rating}-star feedback for trade ${tradeId} on Solana Devnet`,
+        }),
+      };
+    }
+  } catch (err: any) {
+    return { status: 500, body: makeError('DEPENDENCY_UNAVAILABLE', err.message) };
+  }
+}
+
+export async function handleRegistryConfirm(body: any, _actorId: string) {
+  const { intentId, signature, action, payload } = body;
+  if (!intentId || !signature) {
+    return { status: 400, body: makeError('INVALID_INPUT', 'intentId and signature required') };
+  }
+
+  try {
+    const { submitTradeFeedback, registerAgentIdentity } = await import('../providers/solanaRegistry.ts');
+    if (action === 'feedback') {
+      const fb = submitTradeFeedback(
+        payload.tradeId,
+        payload.authorId,
+        payload.subjectId,
+        payload.rating,
+        payload.tag,
+        signature
+      );
+      return { status: 200, body: makeSuccess(fb) };
+    } else if (action === 'register') {
+      const reg = registerAgentIdentity(
+        payload.agentId,
+        payload.walletPubkey,
+        payload.role,
+        payload.displayName,
+        signature
+      );
+      return { status: 200, body: makeSuccess(reg) };
+    }
+    return { status: 200, body: makeSuccess({ confirmed: true, intentId, signature }) };
+  } catch (err: any) {
+    return { status: 400, body: makeError('INVALID_INPUT', err.message) };
+  }
+}
+

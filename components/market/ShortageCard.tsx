@@ -5,10 +5,11 @@ import { SourceBadge } from '../shared/SourceBadge';
 
 interface ShortageCardProps {
   gap: DeficitGap;
+  isHighlighted?: boolean;
   onSelectAction?: () => void;
 }
 
-export function ShortageCard({ gap, onSelectAction }: ShortageCardProps) {
+export function ShortageCard({ gap, isHighlighted = false, onSelectAction }: ShortageCardProps) {
   const [showExplanation, setShowExplanation] = React.useState(false);
 
   const sevenDayProfile = [
@@ -25,15 +26,20 @@ export function ShortageCard({ gap, onSelectAction }: ShortageCardProps) {
   const coveragePercent = Math.min(100, Math.round((totalSupply / (gap.estimatedDemandKg || 1)) * 100));
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200/90 p-5 shadow-xs transition-shadow hover:shadow-md">
+    <div
+      className={`bg-white rounded-xl border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+        isHighlighted
+          ? 'border-emerald-700 ring-2 ring-emerald-600/40 judge-highlight-ring'
+          : 'border-stone-200/90'
+      }`}
+    >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-100">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base font-bold text-stone-900 tracking-tight">{gap.storeName}</h3>
-            <span className="text-xs px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-medium">
-              {gap.neighborhoodName}
+            <span className="text-xs text-stone-500 font-medium">
+              · {gap.neighborhoodName}
             </span>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">

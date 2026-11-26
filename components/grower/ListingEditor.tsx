@@ -7,6 +7,7 @@ import { Money } from '../shared/Money';
 interface ListingEditorProps {
   initialProduce: ProduceCode;
   gradeReceipt: GradingReceipt | null;
+  confirmedDescription?: string;
   onPublish: (params: {
     produce: ProduceCode;
     description: string;
@@ -23,6 +24,7 @@ interface ListingEditorProps {
 export function ListingEditor({
   initialProduce,
   gradeReceipt,
+  confirmedDescription,
   onPublish,
   isPublishing = false,
 }: ListingEditorProps) {
@@ -33,6 +35,24 @@ export function ListingEditor({
     gradeReceipt?.description ||
       'Morning-picked vine-ripened tomatoes, Grade A certified by local visual inspection. Available for afternoon dispatch.'
   );
+
+  React.useEffect(() => {
+    if (gradeReceipt) {
+      if (
+        gradeReceipt.produce === 'tomato' ||
+        gradeReceipt.produce === 'spinach' ||
+        gradeReceipt.produce === 'guava'
+      ) {
+        setProduce(gradeReceipt.produce);
+      }
+      if (gradeReceipt.description) {
+        setDescription(confirmedDescription || gradeReceipt.description);
+      }
+      if (gradeReceipt.suggestedPricePaisaKg) {
+        setAskPkrKg(Math.round(gradeReceipt.suggestedPricePaisaKg / 100));
+      }
+    }
+  }, [gradeReceipt, confirmedDescription]);
 
   // Multan coordinates (Chenab Greenbelt)
   const [pickupLat] = useState<number>(30.2455);
@@ -52,7 +72,7 @@ export function ListingEditor({
       pickupLat,
       pickupLng,
       pickupUntil,
-      gradeId: gradeReceipt ? '55555555-5555-5555-5555-555555555501' : null,
+      gradeId: gradeReceipt?.gradeId || (gradeReceipt ? '55555555-5555-5555-5555-555555555501' : null),
     });
   };
 

@@ -140,10 +140,13 @@ export const GradeOutputSchema = z.object({
   gradeId: z.string().uuid(),
   produce: GradeProduceCodeSchema,
   visualGrade: VisualGradeSchema,
+  confidenceScore: z.number().int().min(0).max(100).optional(),
   observations: z.array(z.string()).max(3),
   description: z.string().max(250),
+  suggestedPricePaisaKg: z.number().int().positive().optional(),
   reviewRequired: z.boolean(),
   modelId: z.string(),
+  executionMode: z.enum(['Live Gemini API', 'Gemini Edge Fallback']).optional(),
   latencyMs: z.number().int().nonnegative(),
 });
 export type GradeOutput = z.infer<typeof GradeOutputSchema>;
@@ -164,6 +167,7 @@ export const AssistResponseSchema = z.object({
     })
     .nullable(),
   modelId: z.string(),
+  executionMode: z.enum(['Live Gemini API', 'Gemini Edge Fallback']).optional(),
   requiresApproval: z.literal(true),
 });
 export type AssistResponse = z.infer<typeof AssistResponseSchema>;

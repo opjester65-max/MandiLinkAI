@@ -15,10 +15,11 @@ export class LiveConfigurationError extends Error {
 }
 
 export function checkLiveDatabaseCredentials(): { isConfigured: boolean; error?: ApiErrorDetail } {
+  const env = typeof process !== 'undefined' ? process.env : undefined;
   const hasSupabase =
-    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) &&
-    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const hasPg = Boolean(process.env.DATABASE_URL);
+    Boolean(env?.NEXT_PUBLIC_SUPABASE_URL || env?.SUPABASE_URL) &&
+    Boolean(env?.SUPABASE_SERVICE_ROLE_KEY || env?.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const hasPg = Boolean(env?.DATABASE_URL);
 
   if (!hasSupabase && !hasPg) {
     return {

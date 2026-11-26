@@ -12,11 +12,18 @@ import {
   handleDeliverTrade,
   handleGetForecast,
   handleGetMarket,
+  handleMarketStrategy,
   handleGetTrade,
   handleGetTradeMessages,
   handleGradeUpload,
   handlePostMessage,
   handleTradeAssist,
+  handleWalletChallenge,
+  handleWalletVerify,
+  handleAgentProof,
+  handleAgentMetadata,
+  handleRegistryPrepare,
+  handleRegistryConfirm,
   makeError,
   makeSuccess,
 } from './lib/api/handlers.ts';
@@ -47,10 +54,16 @@ async function startServer() {
     res.status(result.status).json(result.body);
   });
 
+  app.post('/api/market/strategy', async (req: Request, res: Response) => {
+    const result = await handleMarketStrategy(req.body);
+    res.status(result.status).json(result.body);
+  });
+
   // POST /api/grades: accepts multipart/form-data field 'image' and 'locale'
   app.post('/api/grades', upload.single('image'), async (req: Request, res: Response) => {
     const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.growerFatima;
     const locale = (req.body?.locale as string) || 'en-PK';
+    const filenameHint = req.file?.originalname || (req.body?.filename as string | undefined);
 
     let buffer: Buffer | undefined = req.file?.buffer;
     if (!buffer && req.body?.imageBase64) {
@@ -62,7 +75,7 @@ async function startServer() {
       return res.status(400).json(makeError('INVALID_INPUT', 'Missing image file or payload'));
     }
 
-    const result = await handleGradeUpload(buffer, locale, actorId, Boolean(req.body?.saveBytes));
+    const result = await handleGradeUpload(buffer, locale, actorId, Boolean(req.body?.saveBytes), filenameHint);
     res.status(result.status).json(result.body);
   });
 
@@ -144,17 +157,56 @@ async function startServer() {
   // Backward-compatible grading alias
   app.post('/api/providers/grade', async (req: Request, res: Response) => {
     const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.growerFatima;
-    const { imageBase64, mimeType, produce } = req.body;
+    const { imageBase64, produce, filename, locale } = req.body;
     let buffer: Buffer | undefined;
     if (imageBase64) {
       const clean = imageBase64.replace(/^data:image\/\w+;base64,/, '');
       buffer = Buffer.from(clean, 'base64');
     }
     if (buffer) {
-      const result = await handleGradeUpload(buffer, 'en-PK', actorId);
+      const result = await handleGradeUpload(
+        buffer,
+        locale === 'ur-PK' ? 'ur-PK' : 'en-PK',
+        actorId,
+        false,
+        filename || produce
+      );
       return res.status(result.status).json(result.body);
     }
     res.status(400).json(makeError('INVALID_INPUT', 'Missing imageBase64'));
+  });
+
+  // Solana Devnet Agent Registry & Wallet Challenge Routes
+  app.post('/api/wallet/challenge', async (req: Request, res: Response) => {
+    const result = await handleWalletChallenge(req.body);
+    res.status(result.status).json(result.body);
+  });
+
+  app.post('/api/wallet/verify', async (req: Request, res: Response) => {
+    const result = await handleWalletVerify(req.body);
+    res.status(result.status).json(result.body);
+  });
+
+  app.get('/api/agents/:id/proof', async (req: Request, res: Response) => {
+    const result = await handleAgentProof(req.params.id);
+    res.status(result.status).json(result.body);
+  });
+
+  app.get('/api/agents/:id/metadata', async (req: Request, res: Response) => {
+    const result = await handleAgentMetadata(req.params.id);
+    res.status(result.status).json(result.body);
+  });
+
+  app.post('/api/registry/prepare', async (req: Request, res: Response) => {
+    const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.buyerTariq;
+    const result = await handleRegistryPrepare(req.body, actorId);
+    res.status(result.status).json(result.body);
+  });
+
+  app.post('/api/registry/confirm', async (req: Request, res: Response) => {
+    const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.buyerTariq;
+    const result = await handleRegistryConfirm(req.body, actorId);
+    res.status(result.status).json(result.body);
   });
 
   // Dev server or Production static files
