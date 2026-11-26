@@ -48,15 +48,15 @@ export function getInitialState(): MarketState {
         id: FIXTURE_IDS.gradeChenabTomato,
         growerId: FIXTURE_IDS.growerFatima,
         imageSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        modelId: 'gemma-4-26b-a4b-it',
+        modelId: 'gemini-2.5-flash',
         produce: 'tomato',
         locale: 'en-PK',
         visualGrade: 'A',
         observations: ['Firmness: prime turgor', 'Color: 94% deep red', 'Skin: intact, no bruises'],
         description: 'Harvested at dawn along Chenab River greenbelt. Certified Grade A vine tomatoes.',
         reviewRequired: false,
-        latencyMs: 420,
-        providerRequestId: 'req_seed_001',
+        latencyMs: 0,
+        providerRequestId: 'fixture_seed_001',
         createdAt: '2026-10-31T05:30:00.000Z',
       },
     ],
@@ -114,6 +114,11 @@ class SandboxRepository {
     const state = this.getState();
     const agent = state.agents.find((a) => a.id === state.currentUserAgentId);
     return agent || state.agents[0];
+  }
+
+  public getAgentById(agentId: string): Agent | null {
+    const state = this.getState();
+    return state.agents.find((a) => a.id === agentId) || null;
   }
 
   public getMarketData(produce: string = 'tomato', date: string = '2026-10-31') {

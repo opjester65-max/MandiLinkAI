@@ -3,6 +3,7 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-urdu: "Noto Naskh Arabic", "Noto Nastaliq Urdu", "Geeza Pro", "Tahoma", serif;
 }
 
 @layer base {
@@ -16,6 +17,20 @@
     color: #1A1E19;
     overflow-x: hidden;
   }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #047857;
+    outline-offset: 2px;
+  }
+}
+
+.font-urdu {
+  font-family: var(--font-urdu);
+  line-height: 2;
 }
 
 @keyframes softHighlightPulse {

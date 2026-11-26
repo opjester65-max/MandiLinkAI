@@ -8,7 +8,7 @@ import { GradingReceipt } from '../../lib/providers/grading';
 import { Agent, ProduceCode } from '../../lib/contracts';
 import { sandboxRepository } from '../../lib/repositories/marketRepository';
 import { FIXTURE_IDS } from '../../lib/fixtures';
-import { recordVisionGradeTelemetry } from '../../lib/telemetry/sessionTelemetry';
+import { recordLiveGeminiTelemetry } from '../../lib/telemetry/sessionTelemetry';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function GrowerDeskPage({
@@ -29,7 +29,7 @@ export default function GrowerDeskPage({
 
   const handleGradeComplete = (receipt: GradingReceipt, previewUrl?: string | null) => {
     setGradeReceipt(receipt);
-    recordVisionGradeTelemetry();
+    recordLiveGeminiTelemetry('vision', receipt);
     if (receipt.produce === 'tomato' || receipt.produce === 'spinach' || receipt.produce === 'guava') {
       setSelectedProduce(receipt.produce);
     }
@@ -76,8 +76,8 @@ export default function GrowerDeskPage({
   };
 
   const activePersonaLabel = currentUser
-    ? `${currentUser.displayName.split(' ')[0]} (${currentUser.role})`
-    : 'Bibi Fatima';
+    ? `${currentUser.displayName} (${currentUser.role})`
+    : 'Bibi Fatima (grower)';
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -85,7 +85,7 @@ export default function GrowerDeskPage({
       <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-stone-900 tracking-tight">
-            Grower Surplus Desk (Chenab Community Garden)
+            Grower Surplus Desk (Bibi Fatima · Chenab Community Garden)
           </h2>
           <p className="text-xs text-stone-600 mt-0.5">
             Turn perishable harvest into verified retail supply in 3 steps: Snap photo, review Gemini 2.5 Flash grade, publish lot.
@@ -97,14 +97,18 @@ export default function GrowerDeskPage({
       </div>
 
       {publishSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div
+          role="status"
+          className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
             <span className="font-bold">{publishSuccess}</span>
           </div>
           <button
+            type="button"
             onClick={() => onNavigateTab && onNavigateTab('market')}
-            className="px-3 py-1.5 rounded-lg bg-emerald-800 text-white font-semibold flex items-center justify-center gap-1 hover:bg-emerald-900 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-lg bg-emerald-800 text-white font-semibold flex items-center justify-center gap-1 hover:bg-emerald-900 transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-emerald-700"
           >
             <span>View on Market Board</span>
             <ArrowRight className="w-3.5 h-3.5" />

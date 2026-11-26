@@ -31,9 +31,9 @@ export function DaySelector({
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 p-4 shadow-2xs">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Date Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
             <Calendar className="w-3.5 h-3.5 text-stone-500" />
             Market Date:
@@ -41,8 +41,9 @@ export function DaySelector({
           {days.map((d) => (
             <button
               key={d.date}
+              type="button"
               onClick={() => onSelectDate(d.date)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-stone-900 ${
+              className={`px-3 min-h-[44px] sm:min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-stone-900 ${
                 selectedDate === d.date
                   ? 'bg-stone-900 text-white shadow-xs'
                   : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -51,8 +52,8 @@ export function DaySelector({
               {d.label}
               {d.tag && (
                 <span
-                  className={`ml-1.5 text-[10px] px-1.5 py-0.2 rounded ${
-                    selectedDate === d.date ? 'bg-amber-400 text-stone-900 font-bold' : 'text-stone-500'
+                  className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded ${
+                    selectedDate === d.date ? 'bg-amber-400 text-stone-900 font-bold' : 'text-stone-600'
                   }`}
                 >
                   {d.tag}
@@ -63,7 +64,7 @@ export function DaySelector({
         </div>
 
         {/* Produce Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
             <Apple className="w-3.5 h-3.5 text-stone-500" />
             Produce:
@@ -74,8 +75,9 @@ export function DaySelector({
             return (
               <button
                 key={p.code}
+                type="button"
                 onClick={() => onSelectProduce(p.code)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-700 ${
+                className={`flex items-center gap-1.5 px-3 min-h-[44px] sm:min-h-[38px] rounded-lg text-xs font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-700 ${
                   isSelected
                     ? 'bg-emerald-800 text-white shadow-xs ring-1 ring-emerald-900'
                     : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -84,8 +86,8 @@ export function DaySelector({
                 <span>{p.icon}</span>
                 <span>{p.label}</span>
                 <span
-                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected ? 'bg-emerald-950 text-emerald-200' : 'bg-stone-200 text-stone-600'
+                  className={`text-[11px] px-1.5 py-0.5 rounded-full font-mono tabular-nums ${
+                    isSelected ? 'bg-emerald-950 text-emerald-200' : 'bg-stone-200 text-stone-700'
                   }`}
                 >
                   {count} lots

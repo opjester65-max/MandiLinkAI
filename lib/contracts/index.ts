@@ -19,6 +19,10 @@ export const MessageKindSchema = z.enum(['human', 'approved_draft']);
 export type MessageKind = z.infer<typeof MessageKindSchema>;
 
 // Shared Envelopes
+const UuidHexSchema = z
+  .string()
+  .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Invalid UUID');
+
 export interface ApiSuccessMeta {
   source: 'database' | 'sandbox' | 'fixture' | 'live';
   requestId: string;
@@ -51,7 +55,7 @@ export interface ApiErrorResponse {
 
 // Entity schemas
 export const NeighborhoodSchema = z.object({
-  id: z.string().uuid(),
+  id: UuidHexSchema,
   slug: z.string().min(1),
   name: z.string().min(1),
   lat: z.number().min(29.5).max(30.8),
@@ -60,20 +64,20 @@ export const NeighborhoodSchema = z.object({
 export type Neighborhood = z.infer<typeof NeighborhoodSchema>;
 
 export const AgentSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
+  id: UuidHexSchema,
+  userId: UuidHexSchema,
   role: RoleSchema,
   displayName: z.string().min(1),
-  neighborhoodId: z.string().uuid(),
+  neighborhoodId: UuidHexSchema,
   walletPubkey: z.string().nullable().optional(),
   reputationScore: z.number().min(0).max(100).optional(),
 });
 export type Agent = z.infer<typeof AgentSchema>;
 
 export const StoreSchema = z.object({
-  id: z.string().uuid(),
-  buyerId: z.string().uuid(),
-  neighborhoodId: z.string().uuid(),
+  id: UuidHexSchema,
+  buyerId: UuidHexSchema,
+  neighborhoodId: UuidHexSchema,
   name: z.string().min(1),
   lat: z.number().min(29.5).max(30.8),
   lng: z.number().min(71.0).max(72.0),
@@ -82,9 +86,9 @@ export type Store = z.infer<typeof StoreSchema>;
 
 
 export const ListingSchema = z.object({
-  id: z.string().uuid(),
-  growerId: z.string().uuid(),
-  gradeId: z.string().uuid().nullable().optional(),
+  id: UuidHexSchema,
+  growerId: UuidHexSchema,
+  gradeId: UuidHexSchema.nullable().optional(),
   produce: ProduceCodeSchema,
   description: z.string().min(1),
   availableG: z.number().int().nonnegative(),
@@ -99,9 +103,9 @@ export const ListingSchema = z.object({
 export type Listing = z.infer<typeof ListingSchema>;
 
 export const OfferSchema = z.object({
-  id: z.string().uuid(),
-  tradeId: z.string().uuid(),
-  makerId: z.string().uuid(),
+  id: UuidHexSchema,
+  tradeId: UuidHexSchema,
+  makerId: UuidHexSchema,
   qtyG: z.number().int().positive(),
   pricePaisaKg: z.number().int().positive(),
   expiresAt: z.string().datetime(),
@@ -113,9 +117,9 @@ export const OfferSchema = z.object({
 export type Offer = z.infer<typeof OfferSchema>;
 
 export const MessageSchema = z.object({
-  id: z.string().uuid(),
-  tradeId: z.string().uuid(),
-  senderId: z.string().uuid(),
+  id: UuidHexSchema,
+  tradeId: UuidHexSchema,
+  senderId: UuidHexSchema,
   body: z.string().min(1),
   kind: MessageKindSchema,
   createdAt: z.string().datetime(),
@@ -136,8 +140,18 @@ export type AssistIntent = z.infer<typeof AssistIntentSchema>;
 export const ForecastBasisSchema = z.enum(['store_history', 'neighborhood_pooled', 'insufficient_data']);
 export type ForecastBasis = z.infer<typeof ForecastBasisSchema>;
 
+export const ExecutionModeSchema = z.enum(['Live Gemini API', 'Simulated (No API Key)']);
+export type ExecutionMode = z.infer<typeof ExecutionModeSchema>;
+
+export const TokenUsageSchema = z.object({
+  promptTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+});
+export type TokenUsage = z.infer<typeof TokenUsageSchema>;
+
 export const GradeOutputSchema = z.object({
-  gradeId: z.string().uuid(),
+  gradeId: UuidHexSchema,
   produce: GradeProduceCodeSchema,
   visualGrade: VisualGradeSchema,
   confidenceScore: z.number().int().min(0).max(100).optional(),
@@ -146,8 +160,9 @@ export const GradeOutputSchema = z.object({
   suggestedPricePaisaKg: z.number().int().positive().optional(),
   reviewRequired: z.boolean(),
   modelId: z.string(),
-  executionMode: z.enum(['Live Gemini API', 'Gemini Edge Fallback']).optional(),
+  executionMode: ExecutionModeSchema.optional(),
   latencyMs: z.number().int().nonnegative(),
+  tokenUsage: TokenUsageSchema.nullable().optional(),
 });
 export type GradeOutput = z.infer<typeof GradeOutputSchema>;
 
@@ -167,7 +182,9 @@ export const AssistResponseSchema = z.object({
     })
     .nullable(),
   modelId: z.string(),
-  executionMode: z.enum(['Live Gemini API', 'Gemini Edge Fallback']).optional(),
+  executionMode: ExecutionModeSchema.optional(),
+  latencyMs: z.number().int().nonnegative().optional(),
+  tokenUsage: TokenUsageSchema.nullable().optional(),
   requiresApproval: z.literal(true),
 });
 export type AssistResponse = z.infer<typeof AssistResponseSchema>;
@@ -195,13 +212,13 @@ export const ForecastResponseSchema = z.object({
   queryId: z.string(),
   queriedAt: z.string().datetime(),
   cachedAt: z.string().datetime().nullable(),
-  sourceClassification: z.string().default('Live Snowflake query & Synthetic data'),
+  sourceClassification: z.string().default('Simulated (Snowflake SQL Model & Synthetic Data)'),
 });
 export type ForecastResponse = z.infer<typeof ForecastResponseSchema>;
 
 export const GradeSchema = z.object({
-  id: z.string().uuid(),
-  growerId: z.string().uuid(),
+  id: UuidHexSchema,
+  growerId: UuidHexSchema,
   imageSha256: z.string().length(64),
   modelId: z.string().min(1),
   produce: GradeProduceCodeSchema.default('unknown'),
@@ -217,12 +234,12 @@ export const GradeSchema = z.object({
 export type Grade = z.infer<typeof GradeSchema>;
 
 export const TradeSchema = z.object({
-  id: z.string().uuid(),
-  listingId: z.string().uuid(),
-  storeId: z.string().uuid(),
+  id: UuidHexSchema,
+  listingId: UuidHexSchema,
+  storeId: UuidHexSchema,
   status: TradeStatusSchema,
   deliveryDate: z.string().default('2026-10-31'),
-  acceptedOfferId: z.string().uuid().nullable().optional(),
+  acceptedOfferId: UuidHexSchema.nullable().optional(),
   deliveredAt: z.string().datetime().nullable().optional(),
   version: z.number().int().positive().default(1),
   createdAt: z.string().datetime(),
@@ -234,9 +251,9 @@ export const TradeSchema = z.object({
 export type Trade = z.infer<typeof TradeSchema>;
 
 export const DeficitGapSchema = z.object({
-  neighborhoodId: z.string().uuid(),
+  neighborhoodId: UuidHexSchema,
   neighborhoodName: z.string(),
-  storeId: z.string().uuid(),
+  storeId: UuidHexSchema,
   storeName: z.string(),
   produce: ProduceCodeSchema,
   date: z.string(), // YYYY-MM-DD
@@ -252,8 +269,8 @@ export const DeficitGapSchema = z.object({
 export type DeficitGap = z.infer<typeof DeficitGapSchema>;
 
 export const SupplyMatchSchema = z.object({
-  id: z.string().uuid(),
-  listingId: z.string().uuid(),
+  id: UuidHexSchema,
+  listingId: UuidHexSchema,
   listing: ListingSchema,
   gap: DeficitGapSchema,
   distanceKm: z.number(),
@@ -264,7 +281,7 @@ export const SupplyMatchSchema = z.object({
 export type SupplyMatch = z.infer<typeof SupplyMatchSchema>;
 
 export const CreateListingRequestSchema = z.object({
-  gradeId: z.string().uuid().nullable().optional(),
+  gradeId: UuidHexSchema.nullable().optional(),
   produce: ProduceCodeSchema,
   description: z.string().min(1),
   availableG: z.number().int().positive(),
@@ -275,8 +292,8 @@ export const CreateListingRequestSchema = z.object({
 });
 
 export const CreateTradeRequestSchema = z.object({
-  listingId: z.string().uuid(),
-  storeId: z.string().uuid(),
+  listingId: UuidHexSchema,
+  storeId: UuidHexSchema,
   deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default('2026-10-31'),
 });
 
@@ -292,7 +309,7 @@ export const CreateOfferRequestSchema = z.object({
 });
 
 export const AcceptOfferRequestSchema = z.object({
-  offerId: z.string().uuid(),
+  offerId: UuidHexSchema,
   expectedVersion: z.number().int().positive(),
 });
 

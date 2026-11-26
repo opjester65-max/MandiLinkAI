@@ -248,10 +248,9 @@ export async function handleGradeUpload(
   saveBytes: boolean = false,
   filenameHint?: string
 ) {
-  // Authenticate grower
-  const actor = sandboxRepository.getCurrentUserAgent();
-  if (actor.role !== 'grower' && actor.id !== actorId) {
-    // Check if actor is grower
+  // Authenticate grower against repository agents (not just current default persona)
+  const actor = sandboxRepository.getAgentById(actorId);
+  if (!actor || actor.role !== 'grower') {
     return { status: 403, body: makeError('FORBIDDEN', 'Only authenticated growers can submit lots for grading') };
   }
 
@@ -303,7 +302,12 @@ export async function handleMarketStrategy(body: any) {
       date,
       produce,
       gaps: Array.isArray(body?.gaps) && body.gaps.length > 0 ? body.gaps : market.gaps,
-      matches: Array.isArray(body?.matches) && body.matches.length > 0 ? body.matches : matches,
+      matches:
+        Array.isArray(body?.matches) &&
+        body.matches.length > 0 &&
+        body.matches.every((m: any) => m && m.listing && typeof m.listing.availableG === 'number')
+          ? body.matches
+          : matches,
     });
     return {
       status: 200,
@@ -334,14 +338,66 @@ export async function handleGetForecast(query: { date?: string; produce?: string
 
 export async function handleTradeAssist(tradeId: string, body: any, actorId: string) {
   const tradeResult = sandboxRepository.getTradeById(tradeId);
-  if (!tradeResult.trade || !tradeResult.listing) {
-    return { status: 404, body: makeError('NOT_FOUND', 'Trade or listing not found') };
-  }
+  const sandboxCtx = body?.sandboxContext;
 
-  const isBuyer = tradeResult.store && tradeResult.store.buyerId === actorId;
-  const isGrower = tradeResult.listing && tradeResult.listing.growerId === actorId;
-  if (!isBuyer && !isGrower) {
-    return { status: 403, body: makeError('FORBIDDEN', 'Only trade participants can request AI bargaining assist') };
+  let resolvedTrade = tradeResult.trade;
+  let resolvedListing = tradeResult.listing;
+  let role: 'buyer' | 'grower' | null = null;
+  let recentMessages = tradeResult.messages;
+
+  if (resolvedTrade && resolvedListing) {
+    const isBuyer = tradeResult.store && tradeResult.store.buyerId === actorId;
+    const isGrower = resolvedListing.growerId === actorId;
+    if (!isBuyer && !isGrower) {
+      return { status: 403, body: makeError('FORBIDDEN', 'Only trade participants can request AI bargaining assist') };
+    }
+    role = isBuyer ? 'buyer' : 'grower';
+  } else if (sandboxCtx && typeof sandboxCtx === 'object') {
+    const knownActor = sandboxRepository.getAgentById(actorId);
+    if (!knownActor) {
+      return { status: 403, body: makeError('FORBIDDEN', 'Only trade participants can request AI bargaining assist') };
+    }
+    const produce = ['tomato', 'spinach', 'guava'].includes(sandboxCtx.produce)
+      ? sandboxCtx.produce
+      : 'tomato';
+    const availableG =
+      typeof sandboxCtx.availableG === 'number' && sandboxCtx.availableG > 0
+        ? Math.round(sandboxCtx.availableG)
+        : 30000;
+    const askPaisaKg =
+      typeof sandboxCtx.askPaisaKg === 'number' && sandboxCtx.askPaisaKg > 0
+        ? Math.round(sandboxCtx.askPaisaKg)
+        : 12000;
+
+    role = knownActor.role === 'grower' ? 'grower' : 'buyer';
+    resolvedTrade = {
+      id: tradeId,
+      listingId: typeof sandboxCtx.listingId === 'string' ? sandboxCtx.listingId : '66666666-6666-6666-6666-666666666601',
+      storeId: '44444444-4444-4444-4444-444444444401',
+      status: 'negotiating',
+      deliveryDate: '2026-10-31',
+      acceptedOfferId: null,
+      deliveredAt: null,
+      version: 1,
+      createdAt: new Date().toISOString(),
+    };
+    resolvedListing = {
+      id: resolvedTrade.listingId,
+      growerId: '33333333-3333-3333-3333-333333333302',
+      produce,
+      description: `Fresh ${produce} harvest`,
+      availableG,
+      askPaisaKg,
+      pickupLat: 30.2455,
+      pickupLng: 71.4718,
+      pickupUntil: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
+      status: 'open',
+      version: 1,
+      growerName: 'Bibi Fatima · Chenab Community Garden',
+    };
+    recentMessages = Array.isArray(sandboxCtx.recentMessages) ? sandboxCtx.recentMessages : [];
+  } else {
+    return { status: 404, body: makeError('NOT_FOUND', 'Trade or listing not found') };
   }
 
   const intent = ['draft', 'counter', 'explain'].includes(body.intent) ? body.intent : 'draft';
@@ -353,19 +409,19 @@ export async function handleTradeAssist(tradeId: string, body: any, actorId: str
     const result = await generateBargainingAssistance(
       { intent, locale, instruction },
       {
-        trade: tradeResult.trade,
-        listing: tradeResult.listing,
-        role: isBuyer ? 'buyer' : 'grower',
-        recentMessages: tradeResult.messages.slice(-5).map((m) => ({
+        trade: resolvedTrade,
+        listing: resolvedListing,
+        role: role!,
+        recentMessages: recentMessages.slice(-5).map((m: any) => ({
           senderRole: m.senderRole,
-          body: m.body,
+          body: String(m.body || ''),
         })),
       }
     );
 
     return {
       status: 200,
-      body: makeSuccess(result),
+      body: makeSuccess(result, result.executionMode === 'Live Gemini API' ? 'live' : 'sandbox'),
     };
   } catch (err: any) {
     return { status: 500, body: makeError('DEPENDENCY_UNAVAILABLE', err.message) };

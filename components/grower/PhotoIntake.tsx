@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { Camera, Upload, Sparkles, CheckCircle2 } from 'lucide-react';
-import { gradeProduceFileWithGemini, GradingReceipt } from '../../lib/providers/grading';
+import { Camera, Upload, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  gradeProduceFileWithGemini,
+  GradingReceipt,
+  MAX_IMAGE_UPLOAD_BYTES,
+} from '../../lib/providers/grading';
 import sampleTomatoImg from '../../src/assets/images/sample_multan_tomatoes_1795725445397.jpg';
 import sampleSpinachImg from '../../src/assets/images/sample_fresh_spinach_1795725446042.jpg';
 import sampleGuavaImg from '../../src/assets/images/sample_blemished_guava_1795725446060.jpg';
@@ -48,6 +52,7 @@ export function PhotoIntake({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [locale, setLocale] = useState<'en-PK' | 'ur-PK'>('en-PK');
   const [isHighlighted, setIsHighlighted] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const updateAnalyzing = (next: boolean) => {
     setIsAnalyzing(next);
@@ -60,7 +65,13 @@ export function PhotoIntake({
     const defaultSample = SAMPLE_FARM_PHOTOS[0];
     setSelectedPreview(defaultSample.url);
     setActiveSampleId(defaultSample.id);
+    setUploadError(null);
     setIsHighlighted(true);
+    const scrollTimer = setTimeout(() => {
+      document
+        .getElementById('tour-target-vision')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
     const timer = setTimeout(() => setIsHighlighted(false), 2600);
 
     fetch(defaultSample.url)
@@ -78,11 +89,13 @@ export function PhotoIntake({
 
     return () => {
       cancelled = true;
+      clearTimeout(scrollTimer);
       clearTimeout(timer);
     };
   }, [tourHighlightSignal]);
 
   const handleAnalyzeSample = async (sample: (typeof SAMPLE_FARM_PHOTOS)[number]) => {
+    setUploadError(null);
     setSelectedPreview(sample.url);
     setActiveSampleId(sample.id);
     updateAnalyzing(true);
@@ -93,17 +106,26 @@ export function PhotoIntake({
       setSelectedFile(file);
       const receipt = await gradeProduceFileWithGemini(file, locale);
       onGradeComplete(receipt, sample.url);
+    } catch (err: any) {
+      setUploadError(err?.message || 'Failed to inspect sample photo. Please retry.');
     } finally {
       updateAnalyzing(false);
     }
   };
 
   const handleRunCurrentAnalysis = async () => {
+    setUploadError(null);
     if (selectedFile) {
+      if (selectedFile.size > MAX_IMAGE_UPLOAD_BYTES) {
+        setUploadError('Image exceeds the 3 MiB limit. Choose a smaller JPEG, PNG, or WebP photo.');
+        return;
+      }
       updateAnalyzing(true);
       try {
         const receipt = await gradeProduceFileWithGemini(selectedFile, locale);
         onGradeComplete(receipt, selectedPreview);
+      } catch (err: any) {
+        setUploadError(err?.message || 'Unable to grade photo. Check format and size (<= 3 MiB).');
       } finally {
         updateAnalyzing(false);
       }
@@ -117,9 +139,23 @@ export function PhotoIntake({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
+    setUploadError(null);
     setActiveSampleId(null);
+
+    if (file.size <= 0) {
+      setUploadError('Uploaded file is empty (0 bytes). Please choose a valid image.');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      setUploadError(`Image is ${sizeMb} MiB, exceeding the 3.00 MiB upload limit.`);
+      return;
+    }
+
     setSelectedFile(file);
 
     const reader = new FileReader();
@@ -132,6 +168,8 @@ export function PhotoIntake({
     try {
       const receipt = await gradeProduceFileWithGemini(file, locale);
       onGradeComplete(receipt, URL.createObjectURL(file));
+    } catch (err: any) {
+      setUploadError(err?.message || 'Image rejected. Ensure it is a valid JPEG, PNG, or WebP under 3 MiB.');
     } finally {
       updateAnalyzing(false);
     }
@@ -139,27 +177,29 @@ export function PhotoIntake({
 
   return (
     <div
+      id="tour-target-vision"
       className={`bg-white rounded-xl border p-5 shadow-xs transition-all duration-200 ${
         isHighlighted
           ? 'border-emerald-700 ring-2 ring-emerald-600/40 judge-highlight-ring'
           : 'border-stone-200'
       }`}
     >
-      <div className="flex items-center justify-between gap-2 pb-3 border-b border-stone-200">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-200">
         <div>
           <h3 className="text-sm font-bold text-stone-900 tracking-tight flex items-center gap-2">
-            <Camera className="w-4 h-4 text-emerald-800" />
+            <Camera className="w-4 h-4 text-emerald-800 shrink-0" />
             <span>Multimodal Produce Vision Grader</span>
           </h3>
           <p className="text-xs text-stone-600 mt-0.5">
             Powered by Google Gemini 2.5 Flash (@google/genai)
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-lg text-[11px]">
+        <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-lg text-xs">
           <button
             type="button"
             onClick={() => setLocale('en-PK')}
-            className={`px-2 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+            aria-pressed={locale === 'en-PK'}
+            className={`px-3 min-h-[36px] rounded-md font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-stone-900 ${
               locale === 'en-PK' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
             }`}
           >
@@ -168,7 +208,10 @@ export function PhotoIntake({
           <button
             type="button"
             onClick={() => setLocale('ur-PK')}
-            className={`px-2 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+            aria-pressed={locale === 'ur-PK'}
+            lang="ur"
+            dir="rtl"
+            className={`px-3 min-h-[36px] rounded-md font-medium transition-colors cursor-pointer font-urdu focus-visible:ring-2 focus-visible:ring-stone-900 ${
               locale === 'ur-PK' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
             }`}
           >
@@ -178,6 +221,19 @@ export function PhotoIntake({
       </div>
 
       <div className="mt-4 space-y-4">
+        {uploadError && (
+          <div
+            role="alert"
+            className="p-3 rounded-lg bg-red-50 border border-red-300 text-red-900 text-xs flex items-start gap-2"
+          >
+            <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Upload / Grading Error: </span>
+              <span>{uploadError}</span>
+            </div>
+          </div>
+        )}
+
         {/* Upload & One-Click Sample Farm Photos Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch">
           {/* File Upload Dropzone */}
@@ -200,19 +256,19 @@ export function PhotoIntake({
                   <Upload className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-semibold text-stone-800">Upload harvest photo</p>
-                <p className="text-[11px] text-stone-500">JPEG, PNG, WebP up to 3 MiB</p>
+                <p className="text-[11px] text-stone-500 tabular-nums">JPEG, PNG, WebP up to 3 MiB</p>
               </div>
             )}
 
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-800 text-white text-xs font-medium hover:bg-emerald-900 transition-colors cursor-pointer whitespace-nowrap">
+              <label className="inline-flex items-center gap-1.5 px-3 min-h-[44px] sm:min-h-[38px] rounded-lg bg-emerald-800 text-white text-xs font-medium hover:bg-emerald-900 transition-colors cursor-pointer whitespace-nowrap focus-within:ring-2 focus-within:ring-emerald-700">
                 <Camera className="w-3.5 h-3.5" />
                 <span>Choose File</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={handleFileUpload}
-                  className="hidden"
+                  className="sr-only"
                 />
               </label>
 
@@ -220,7 +276,7 @@ export function PhotoIntake({
                 type="button"
                 onClick={handleRunCurrentAnalysis}
                 disabled={isAnalyzing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 min-h-[44px] sm:min-h-[38px] rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-stone-900"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>{isAnalyzing ? 'Grading...' : 'Grade Photo'}</span>
@@ -242,7 +298,7 @@ export function PhotoIntake({
                     type="button"
                     disabled={isAnalyzing}
                     onClick={() => handleAnalyzeSample(sample)}
-                    className={`w-full flex items-center gap-2.5 p-2 rounded-lg border text-left transition-colors cursor-pointer disabled:opacity-60 ${
+                    className={`w-full min-h-[54px] flex items-center gap-2.5 p-2 rounded-lg border text-left transition-colors cursor-pointer disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-emerald-700 ${
                       isSelected
                         ? 'border-emerald-700 bg-emerald-50/70'
                         : 'border-stone-200 bg-white hover:bg-stone-50'
@@ -256,7 +312,7 @@ export function PhotoIntake({
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-stone-900 truncate">{sample.label}</p>
-                      <p className="text-[11px] text-stone-500 truncate">{sample.sublabel}</p>
+                      <p className="text-[11px] text-stone-500 truncate tabular-nums">{sample.sublabel}</p>
                     </div>
                     {isSelected && !isAnalyzing && (
                       <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />

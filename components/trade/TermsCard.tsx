@@ -68,7 +68,9 @@ export function TermsCard({
 
         <div className="p-3 rounded-lg bg-stone-50 border border-stone-200">
           <span className="text-[10px] text-stone-500 font-bold uppercase block">Seller Grower</span>
-          <p className="font-bold text-stone-900 text-sm mt-0.5">{listing?.growerName || 'Chenab Community Garden'}</p>
+          <p className="font-bold text-stone-900 text-sm mt-0.5">
+            {listing?.growerName || `${growerAgent?.displayName || 'Bibi Fatima'} · Chenab Community Garden`}
+          </p>
           <p className="text-stone-600 text-[11px] mt-0.5">Commodity: {listing?.produce?.toUpperCase()} • Fresh Lot</p>
         </div>
       </div>
@@ -84,7 +86,7 @@ export function TermsCard({
             <span className="text-xs font-mono font-bold text-purple-800">Agreed Contract</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-purple-200/60">
+          <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-purple-200/60 tabular-nums">
             <div>
               <span className="text-[10px] text-purple-700 font-bold uppercase block">Quantity</span>
               <Quantity grams={trade.acceptedOffer.qtyG} className="text-base text-purple-950 font-black block mt-0.5" />
@@ -106,17 +108,18 @@ export function TermsCard({
         <div className="pt-2">
           {isBuyer ? (
             <button
+              type="button"
               onClick={onDeliverTrade}
               disabled={isDelivering}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
+              className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isDelivering ? 'Recording Delivery...' : 'Confirm Produce Physical Delivery (Buyer Tariq)'}</span>
+              <span>{isDelivering ? 'Recording Delivery...' : 'Confirm Produce Physical Delivery (Tariq Mehmood)'}</span>
             </button>
           ) : (
-            <div className="p-3 rounded-lg bg-stone-100 text-stone-600 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-stone-100 text-stone-700 text-xs flex items-center gap-2">
               <Clock className="w-4 h-4 text-stone-500 shrink-0" />
-              <span>Awaiting receiving buyer (Tariq) to verify physical delivery on corner store shelf.</span>
+              <span>Awaiting receiving buyer (Tariq Mehmood) to verify physical delivery on corner store shelf.</span>
             </div>
           )}
         </div>

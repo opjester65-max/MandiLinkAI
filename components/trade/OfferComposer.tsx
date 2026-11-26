@@ -37,28 +37,29 @@ export function OfferComposer({
   const pricePaisa = pkrToPaisa(pricePkrKg);
   const totalPaisa = calculateTotalPaisa(qtyG, pricePaisa);
   const totalPkr = paisaToPkr(totalPaisa);
+  const exceedsStock = Boolean(listing && qtyG > listing.availableG);
 
   const handlePropose = (e: React.FormEvent) => {
     e.preventDefault();
-    if (qtyKg <= 0 || pricePkrKg <= 0) return;
+    if (qtyKg <= 0 || pricePkrKg <= 0 || exceedsStock) return;
     onProposeOffer(qtyKg, pricePkrKg);
   };
 
   const handleLoadFridayAcceptanceScenario = () => {
-    setQtyKg(20);
+    setQtyKg(Math.min(20, availableKg || 20));
     setPricePkrKg(110);
   };
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-stone-150">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-150">
         <div>
           <h3 className="text-sm font-bold text-stone-900 tracking-tight flex items-center gap-2">
-            <Handshake className="w-4 h-4 text-emerald-800" />
-            Bargaining & Offer Management
+            <Handshake className="w-4 h-4 text-emerald-800 shrink-0" />
+            <span>Bargaining &amp; Offer Management</span>
           </h3>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-600 mt-0.5 tabular-nums">
             Remaining Lot: <Quantity grams={listing?.availableG || 0} className="font-bold text-emerald-800" />
           </p>
         </div>
@@ -67,11 +68,11 @@ export function OfferComposer({
           <button
             type="button"
             onClick={handleLoadFridayAcceptanceScenario}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 min-h-[40px] rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-900"
             title="Load Hackathon Scenario: 20 kg @ PKR 110/kg"
           >
             <Sparkles className="w-3 h-3 text-amber-700" />
-            Scenario: 20kg @ PKR 110
+            <span>Scenario: 20kg @ PKR 110</span>
           </button>
         )}
       </div>
@@ -80,10 +81,10 @@ export function OfferComposer({
       {isNegotiating ? (
         <form onSubmit={handlePropose} className="space-y-3 bg-stone-50 p-4 rounded-xl border border-stone-200">
           <span className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
-            Propose Terms ({currentUser.displayName.split(' ')[0]} - {currentUser.role})
+            Propose Terms ({currentUser.displayName} · {currentUser.role})
           </span>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-semibold text-stone-600 block mb-1">
                 Quantity (kg)
@@ -92,12 +93,17 @@ export function OfferComposer({
                 <input
                   type="number"
                   min="1"
-                  max={availableKg}
+                  max={availableKg || 1000}
                   value={qtyKg}
                   onChange={(e) => setQtyKg(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
+                  aria-invalid={exceedsStock}
+                  className={`w-full min-h-[44px] px-3 py-1.5 text-xs font-mono tabular-nums font-bold rounded-lg border bg-white focus-visible:ring-2 ${
+                    exceedsStock
+                      ? 'border-red-500 focus-visible:ring-red-600'
+                      : 'border-stone-300 focus-visible:ring-emerald-700'
+                  }`}
                 />
-                <span className="absolute right-2.5 top-1.5 text-xs text-stone-400">kg</span>
+                <span className="absolute right-2.5 top-3 text-xs text-stone-500">kg</span>
               </div>
             </div>
 
@@ -112,15 +118,27 @@ export function OfferComposer({
                   max="1000"
                   value={pricePkrKg}
                   onChange={(e) => setPricePkrKg(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
+                  className="w-full min-h-[44px] px-3 py-1.5 text-xs font-mono tabular-nums font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
                 />
-                <span className="absolute right-2.5 top-1.5 text-xs text-stone-400">PKR</span>
+                <span className="absolute right-2.5 top-3 text-xs text-stone-500">PKR</span>
               </div>
             </div>
           </div>
 
+          {exceedsStock && (
+            <div
+              role="alert"
+              className="p-2.5 rounded-lg bg-red-50 border border-red-300 text-red-900 text-xs flex items-center gap-2 tabular-nums"
+            >
+              <AlertTriangle className="w-4 h-4 text-red-700 shrink-0" />
+              <span>
+                Offer exceeds remaining lot stock ({availableKg} kg available). Reduce quantity to {availableKg} kg or less.
+              </span>
+            </div>
+          )}
+
           {/* Computed Financial Summary */}
-          <div className="flex items-center justify-between text-xs pt-1 px-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 px-1 tabular-nums">
             <span className="text-stone-600">
               Calculated Total: <span className="font-mono font-bold text-stone-900">PKR {totalPkr.toLocaleString()}</span>
             </span>
@@ -131,26 +149,26 @@ export function OfferComposer({
 
           <button
             type="submit"
-            disabled={isProposing || (listing ? qtyG > listing.availableG : false)}
-            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition-colors cursor-pointer disabled:opacity-50"
+            disabled={isProposing || exceedsStock}
+            className="w-full min-h-[44px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition-colors cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-stone-900"
           >
             <span>{isProposing ? 'Submitting Offer...' : 'Send Offer Proposal'}</span>
           </button>
         </form>
       ) : (
-        <div className="p-3 rounded-lg bg-stone-100 text-stone-600 text-xs">
+        <div className="p-3 rounded-lg bg-stone-100 text-stone-700 text-xs">
           Negotiation concluded. Trade is currently in <strong>{trade.status}</strong> status.
         </div>
       )}
 
       {/* Offers List & Counterparty Acceptance */}
       <div className="space-y-2">
-        <span className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
+        <span className="text-xs font-bold text-stone-700 uppercase tracking-wider block tabular-nums">
           Proposed Terms Log ({offers.length})
         </span>
 
         {offers.length === 0 ? (
-          <p className="text-xs text-stone-400 text-center py-4">No offers proposed yet.</p>
+          <p className="text-xs text-stone-500 text-center py-4">No offers proposed yet.</p>
         ) : (
           offers.map((offer) => {
             const isMaker = offer.makerId === currentUser.id;
@@ -162,12 +180,12 @@ export function OfferComposer({
                 className="p-3 rounded-xl border border-stone-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 tabular-nums">
                     <span className="text-xs font-bold text-stone-900">
                       {offer.qtyG / 1000} kg @ PKR {offer.pricePaisaKg / 100}/kg
                     </span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                         isMaker ? 'bg-stone-100 text-stone-700' : 'bg-purple-100 text-purple-900 font-semibold'
                       }`}
                     >
@@ -175,7 +193,7 @@ export function OfferComposer({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px] text-stone-500 mt-1">
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-stone-500 mt-1 tabular-nums">
                     <span>
                       Total: <strong className="text-stone-900">PKR {paisaToPkr(offer.totalPaisa || 0).toLocaleString()}</strong>
                     </span>
@@ -192,9 +210,10 @@ export function OfferComposer({
                   <div className="shrink-0">
                     {canAccept ? (
                       <button
+                        type="button"
                         onClick={() => onAcceptOffer(offer.id)}
                         disabled={isAccepting}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
+                        className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>{isAccepting ? 'Locking Deal...' : 'Accept Terms & Lock Inventory'}</span>

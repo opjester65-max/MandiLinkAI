@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { DeficitGap, ProduceCode, SupplyMatch } from '../contracts';
+import { DeficitGap, ExecutionMode, ProduceCode, SupplyMatch, TokenUsage } from '../contracts';
 import { getUsableGeminiApiKey, markGeminiFailure } from './geminiKey';
+import { GEMINI_MODEL_ID, buildStrategistPrompt } from './aiSpecs';
 
 export interface StrategyRequest {
   date: string;
@@ -12,19 +13,23 @@ export interface StrategyRequest {
 export interface StrategyResponse {
   recommendation: string;
   modelId: string;
-  executionMode: 'Live Gemini API' | 'Gemini Edge Fallback';
+  executionMode: ExecutionMode;
+  latencyMs: number;
+  tokenUsage: TokenUsage | null;
   generatedAt: string;
 }
 
-function buildSmartFallbackStrategy(req: StrategyRequest): StrategyResponse {
+function buildSmartFallbackStrategy(req: StrategyRequest, startTime: number): StrategyResponse {
   const gap = req.gaps.find((g) => g.produce === req.produce) || req.gaps[0];
-  const topMatch = req.matches[0];
+  const topMatch = req.matches.find((m) => m && m.listing && typeof m.listing.availableG === 'number');
 
   if (!gap || !topMatch) {
     return {
       recommendation: `No active ${req.produce} shortfall requires immediate dispatch on ${req.date}. Monitor morning grower surplus updates before scheduling pickups.`,
-      modelId: 'gemini-2.5-flash',
-      executionMode: 'Gemini Edge Fallback',
+      modelId: GEMINI_MODEL_ID,
+      executionMode: 'Simulated (No API Key)',
+      latencyMs: Math.max(1, Date.now() - startTime),
+      tokenUsage: null,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -35,16 +40,19 @@ function buildSmartFallbackStrategy(req: StrategyRequest): StrategyResponse {
   const targetPkr = Math.max(50, askPkr - 10);
 
   return {
-    recommendation: `Dispatch ${dispatchKg} kg of ${topMatch.listing.produce} from ${topMatch.listing.growerName || 'Chenab Community Garden'} (${topMatch.distanceKm.toFixed(1)} km away) to ${gap.storeName} first to eliminate ${Math.round((dispatchKg / Math.max(1, gap.gapKg)) * 100)}% of Friday's ${gap.gapKg} kg deficit. Counter near PKR ${targetPkr}/kg for single-drop afternoon pickup and route the remaining ${Math.max(0, availableKg - dispatchKg)} kg to adjacent Gulgasht stalls.`,
-    modelId: 'gemini-2.5-flash',
-    executionMode: 'Gemini Edge Fallback',
+    recommendation: `Dispatch ${dispatchKg} kg of ${topMatch.listing.produce} from ${topMatch.listing.growerName || 'Bibi Fatima · Chenab Community Garden'} (${topMatch.distanceKm.toFixed(1)} km away) to ${gap.storeName} first to eliminate ${Math.round((dispatchKg / Math.max(1, gap.gapKg)) * 100)}% of Friday's ${gap.gapKg} kg deficit. Counter near PKR ${targetPkr}/kg for single-drop afternoon pickup and route the remaining ${Math.max(0, availableKg - dispatchKg)} kg to adjacent Gulgasht stalls.`,
+    modelId: GEMINI_MODEL_ID,
+    executionMode: 'Simulated (No API Key)',
+    latencyMs: Math.max(1, Date.now() - startTime),
+    tokenUsage: null,
     generatedAt: new Date().toISOString(),
   };
 }
 
 export async function generateSupplyChainStrategy(req: StrategyRequest): Promise<StrategyResponse> {
+  const startTime = Date.now();
   const apiKey = getUsableGeminiApiKey();
-  const modelId = 'gemini-2.5-flash';
+  const modelId = GEMINI_MODEL_ID;
 
   if (apiKey) {
     try {
@@ -67,17 +75,16 @@ export async function generateSupplyChainStrategy(req: StrategyRequest): Promise
         .slice(0, 3)
         .map(
           (m, idx) =>
-            `#${idx + 1} ${m.listing.growerName || 'Grower'} has ${m.listing.availableG / 1000}kg ${m.listing.produce} @ PKR ${m.listing.askPaisaKg / 100}/kg (${m.distanceKm.toFixed(1)} km away)`
+            `#${idx + 1} ${m.listing.growerName || 'Bibi Fatima'} has ${m.listing.availableG / 1000}kg ${m.listing.produce} @ PKR ${m.listing.askPaisaKg / 100}/kg (${m.distanceKm.toFixed(1)} km away)`
         )
         .join('; ');
 
-      const prompt = `You are Gemini Supply Chain Strategist for MandiLink AI in Multan, Pakistan.
-Date: ${req.date}
-Selected commodity: ${req.produce}
-Store Deficits: ${gapSummary || 'None'}
-Nearby Grower Surplus: ${matchSummary || 'None'}
-
-Synthesize the deficit, nearby grower surplus, and optimal pickup sequence into exactly 2 concise, actionable sentences for the store buyer and grower.`;
+      const prompt = buildStrategistPrompt({
+        date: req.date,
+        produce: req.produce,
+        gapSummary,
+        matchSummary,
+      });
 
       const response = await Promise.race([
         ai.models.generateContent({
@@ -103,10 +110,21 @@ Synthesize the deficit, nearby grower surplus, and optimal pickup sequence into 
       if (raw) {
         const parsed = JSON.parse(raw);
         if (typeof parsed.recommendation === 'string' && parsed.recommendation.trim()) {
+          const usage = (response as any).usageMetadata;
+          const tokenUsage: TokenUsage | null = usage
+            ? {
+                promptTokens: usage.promptTokenCount ?? 0,
+                outputTokens: usage.candidatesTokenCount ?? 0,
+                totalTokens:
+                  usage.totalTokenCount ?? (usage.promptTokenCount ?? 0) + (usage.candidatesTokenCount ?? 0),
+              }
+            : null;
           return {
             recommendation: parsed.recommendation.trim(),
-            modelId,
+            modelId: (response as any).modelVersion || modelId,
             executionMode: 'Live Gemini API',
+            latencyMs: Math.max(1, Date.now() - startTime),
+            tokenUsage,
             generatedAt: new Date().toISOString(),
           };
         }
@@ -116,5 +134,5 @@ Synthesize the deficit, nearby grower surplus, and optimal pickup sequence into 
     }
   }
 
-  return buildSmartFallbackStrategy(req);
+  return buildSmartFallbackStrategy(req, startTime);
 }

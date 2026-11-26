@@ -5,7 +5,7 @@ export interface ForecastReceipt {
   provider: 'Snowflake CoCo Analytics Engine';
   warehouse: string;
   queryId: string;
-  receiptStatus: 'Live' | 'Fixture';
+  receiptStatus: 'Live' | 'Simulated';
   executionTimeMs: number;
   censusTractsAnalyzed: number;
   rawSql: string;
@@ -22,9 +22,9 @@ export function getSnowflakeForecastForDate(
   const receipt: ForecastReceipt = {
     provider: 'Snowflake CoCo Analytics Engine',
     warehouse: 'MULTAN_URBAN_COMPUTE_WH',
-    queryId: `sf-coco-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
-    receiptStatus: 'Fixture',
-    executionTimeMs: 42,
+    queryId: `sim-sf-coco-${Date.now().toString(36)}`,
+    receiptStatus: 'Simulated',
+    executionTimeMs: 0,
     censusTractsAnalyzed: 18,
     rawSql: `SELECT neighborhood, estimated_demand_kg, commercial_delivered_kg, gap_kg FROM MULTAN_FOOD_CENSUS.ANALYTICS.DEFICIT_PREDICTIONS WHERE market_date = '${date}' AND produce_type = '${produce}';`,
   };

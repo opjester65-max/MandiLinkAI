@@ -60,23 +60,42 @@ async function startServer() {
   });
 
   // POST /api/grades: accepts multipart/form-data field 'image' and 'locale'
-  app.post('/api/grades', upload.single('image'), async (req: Request, res: Response) => {
-    const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.growerFatima;
-    const locale = (req.body?.locale as string) || 'en-PK';
-    const filenameHint = req.file?.originalname || (req.body?.filename as string | undefined);
+  app.post('/api/grades', (req: Request, res: Response) => {
+    upload.single('image')(req, res, async (uploadErr: any) => {
+      if (uploadErr) {
+        if (uploadErr?.code === 'LIMIT_FILE_SIZE') {
+          return res
+            .status(413)
+            .json(makeError('INVALID_INPUT', 'Image size exceeds 3 MiB maximum limit'));
+        }
+        return res
+          .status(400)
+          .json(makeError('INVALID_INPUT', uploadErr?.message || 'Invalid multipart image upload'));
+      }
 
-    let buffer: Buffer | undefined = req.file?.buffer;
-    if (!buffer && req.body?.imageBase64) {
-      const cleanBase64 = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, '');
-      buffer = Buffer.from(cleanBase64, 'base64');
-    }
+      const actorId = (req.headers['x-agent-id'] as string) || FIXTURE_IDS.growerFatima;
+      const locale = (req.body?.locale as string) || 'en-PK';
+      const filenameHint = req.file?.originalname || (req.body?.filename as string | undefined);
 
-    if (!buffer) {
-      return res.status(400).json(makeError('INVALID_INPUT', 'Missing image file or payload'));
-    }
+      let buffer: Buffer | undefined = req.file?.buffer;
+      if (!buffer && req.body?.imageBase64) {
+        const cleanBase64 = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        buffer = Buffer.from(cleanBase64, 'base64');
+      }
 
-    const result = await handleGradeUpload(buffer, locale, actorId, Boolean(req.body?.saveBytes), filenameHint);
-    res.status(result.status).json(result.body);
+      if (!buffer) {
+        return res.status(400).json(makeError('INVALID_INPUT', 'Missing image file or payload'));
+      }
+
+      const result = await handleGradeUpload(
+        buffer,
+        locale,
+        actorId,
+        Boolean(req.body?.saveBytes),
+        filenameHint
+      );
+      return res.status(result.status).json(result.body);
+    });
   });
 
   // GET /api/forecast?date=YYYY-MM-DD&produce=tomato

@@ -54,7 +54,7 @@ export function createStandardTomatoLot(): InventoryLot {
   return {
     id: INVENTORY_FIXTURE_IDS.lotChenabTomato30Kg,
     growerId: INVENTORY_FIXTURE_IDS.growerFatima,
-    growerName: 'Bibi Fatima (Chenab Community Garden)',
+    growerName: 'Bibi Fatima · Chenab Community Garden',
     produce: 'tomato',
     totalG: 30000,      // 30 kg lot
     availableG: 30000,  // Initially 30,000 g available

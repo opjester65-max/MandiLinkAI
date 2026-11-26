@@ -101,6 +101,7 @@ export default function App() {
 
   const handleSelectTourStep = (step: JudgeTourStep) => {
     setActiveTourStep(step);
+    setTourDismissed(false);
     if (step === 1) {
       setCurrentTab('market');
       setMarketHighlightSignal((n) => n + 1);
@@ -130,7 +131,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1A1E19] flex flex-col font-sans antialiased selection:bg-emerald-200 overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#1A1E19] flex flex-col font-sans antialiased selection:bg-emerald-200 overflow-x-clip">
       {/* Top Global Navigation */}
       <TopNav
         currentTab={currentTab}
@@ -213,9 +214,9 @@ export default function App() {
 
       {/* Footer Audit Bar */}
       <footer className="border-t border-stone-200/80 bg-stone-100/60 py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-600">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-stone-700">MandiLink AI · Multan</span>
+            <span className="font-semibold text-stone-800">MandiLink AI · Multan</span>
             <span>·</span>
             <span>Urban Food Desert Logistics Matchmaker</span>
           </div>
@@ -223,7 +224,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => handleSelectTab('proof')}
-              className="hover:text-stone-900 transition-colors cursor-pointer underline"
+              className="min-h-[36px] px-2 hover:text-stone-900 transition-colors cursor-pointer underline focus-visible:ring-2 focus-visible:ring-stone-900 rounded"
             >
               Audit Receipts &amp; Proofs
             </button>

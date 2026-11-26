@@ -212,10 +212,10 @@ export async function executeDeficitForecast(
 
   const response: ForecastResponse = {
     rows,
-    queryId: `sf-cortex-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+    queryId: `sim-sf-cortex-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
     queriedAt,
     cachedAt: null,
-    sourceClassification: 'Live Snowflake query & Synthetic data',
+    sourceClassification: 'Simulated (Snowflake SQL Model & Synthetic Data)',
   };
 
   // Cache for TTL

@@ -3,32 +3,41 @@ import { getFixtureGradingReceipt } from '../../lib/providers/grading';
 import { getSnowflakeForecastForDate } from '../../lib/providers/forecast';
 import { getSolanaAgentProof, recordOnChainFeedback } from '../../lib/providers/registry';
 import {
+  getSessionTelemetry,
+  resetSessionTelemetry,
+} from '../../lib/telemetry/sessionTelemetry';
+import { sandboxRepository } from '../../lib/repositories/marketRepository';
+import { GEMINI_MODEL_ID } from '../../lib/providers/aiSpecs';
+import {
   ShieldCheck,
   Database,
   Award,
-  ExternalLink,
   Copy,
   Check,
   Terminal,
-  RefreshCw,
   AlertTriangle,
   RotateCcw,
-  Sparkles,
-  Info,
 } from 'lucide-react';
 import { SourceBadge } from '../shared/SourceBadge';
 
 export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?: number }) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [retryingProvider, setRetryingProvider] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [isHighlighted, setIsHighlighted] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (tourHighlightSignal > 0) {
       setIsHighlighted(true);
+      const scrollTimer = setTimeout(() => {
+        document
+          .getElementById('tour-target-proof')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 80);
       const timer = setTimeout(() => setIsHighlighted(false), 2600);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(timer);
+      };
     }
   }, [tourHighlightSignal]);
 
@@ -50,21 +59,21 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
     };
   }, []);
 
+  const telemetry = getSessionTelemetry();
+  const hasLiveGeminiCalls = telemetry.totalLiveCalls > 0;
+
   const handleCopy = (key: string, text: string) => {
     navigator.clipboard?.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleRetryHealth = (providerName: string) => {
-    setRetryingProvider(providerName);
-    setTimeout(() => {
-      setRetryingProvider(null);
-    }, 900);
-  };
-
   const handleResetPracticeMarket = () => {
-    setResetMessage('Practice market reset to deterministic Multan fixtures (30kg tomato surplus, 24kg Friday shortage).');
+    sandboxRepository.reset();
+    resetSessionTelemetry();
+    setResetMessage(
+      'Practice market and live API telemetry reset cleanly to deterministic Multan sample fixtures.'
+    );
     setTimeout(() => setResetMessage(null), 4000);
   };
 
@@ -72,6 +81,7 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
     <div className="space-y-6">
       {/* Header Banner */}
       <div
+        id="tour-target-proof"
         className={`bg-white rounded-xl border p-5 sm:p-6 shadow-xs transition-all duration-200 ${
           isHighlighted
             ? 'border-emerald-700 ring-2 ring-emerald-600/40 judge-highlight-ring'
@@ -81,258 +91,272 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-150">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-700" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 shrink-0" />
               <h2 className="text-lg font-bold text-stone-900 tracking-tight">
                 Hackathon Evidence &amp; Integration Desk
               </h2>
             </div>
             <p className="text-xs text-stone-600 mt-1">
-              Verifiable proof logs, provenance audit trail, and runtime status across all 4 competition tracks.
+              Honest Live vs Recorded vs Simulated provenance across all integrations. Nothing simulated claims to be live.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
+              type="button"
               onClick={handleResetPracticeMarket}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-semibold transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 min-h-[44px] sm:min-h-[38px] rounded-lg border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-semibold transition cursor-pointer focus-visible:ring-2 focus-visible:ring-stone-900"
             >
               <RotateCcw className="w-3.5 h-3.5 text-stone-600" />
-              Reset Practice Market
+              <span>Reset Practice Market</span>
             </button>
-            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-950">
-              Audit Ready • 100% Deterministic
-            </span>
           </div>
         </div>
 
         {resetMessage && (
-          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2 font-medium">
-            <Check className="w-4 h-4 text-emerald-700" />
-            {resetMessage}
+          <div
+            role="status"
+            className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2 font-medium"
+          >
+            <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span>{resetMessage}</span>
           </div>
         )}
 
-        {/* 4 Distinct Evidence State Cards: Live, Previously Verified, Fixture, Unavailable */}
+        {/* 4 Integration Cards with Strict Live / Recorded / Simulated Badges */}
         <div className="mt-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-              Integration State &amp; Provenance Cards
+              Integration Status &amp; Provenance Cards
             </h3>
-            <span className="text-[11px] text-stone-500">
-              4 Explicit Provenance Classifications
+            <span className="text-[11px] text-stone-600">
+              Every card badged strictly as Live, Recorded, or Simulated
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* CARD 1: LIVE */}
-            <div className="p-4 rounded-xl border border-emerald-300 bg-emerald-50/40 flex flex-col justify-between space-y-3">
+            {/* CARD 1: Gemini 2.5 Flash */}
+            <div
+              className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 ${
+                hasLiveGeminiCalls
+                  ? 'border-emerald-300 bg-emerald-50/40'
+                  : 'border-amber-300 bg-amber-50/40'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold tracking-wide">
-                    STATUS: LIVE
-                  </span>
-                  <button
-                    onClick={() => handleRetryHealth('gemma')}
-                    className="p-1 rounded text-stone-500 hover:text-stone-800 hover:bg-emerald-100 transition"
-                    title="Retry live health check"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${retryingProvider === 'gemma' ? 'animate-spin text-emerald-700' : ''}`} />
-                  </button>
+                  <SourceBadge source={hasLiveGeminiCalls ? 'live' : 'simulated'} />
                 </div>
                 <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-emerald-700" />
-                  Google Gemma 4 Core
+                  <Award className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Google {GEMINI_MODEL_ID}</span>
                 </h4>
                 <p className="text-[11px] text-stone-600 mt-1">
-                  Multimodal vision pipeline on Gemini API inspecting harvest crates with magic bytes &amp; byte disposal.
+                  Server-side @google/genai pipeline for multimodal crate grading, EN/Urdu bargaining, and strategy synthesis.
                 </p>
-                <div className="mt-2.5 bg-white p-2 rounded border border-emerald-200 text-[10px] font-mono space-y-0.5">
-                  <p className="text-stone-500">model: <span className="text-stone-900 font-bold">gemma-4-26b-a4b-it</span></p>
-                  <p className="text-stone-500">grade: <span className="text-emerald-800 font-bold">Grade A (Verified)</span></p>
-                  <p className="text-stone-500">latency: <span className="text-stone-800">1,420 ms</span></p>
+                <div className="mt-2.5 bg-white p-2 rounded border border-stone-200 text-[10px] font-mono tabular-nums space-y-0.5">
+                  <p className="text-stone-600">
+                    model: <span className="text-stone-900 font-bold">{GEMINI_MODEL_ID}</span>
+                  </p>
+                  <p className="text-stone-600">
+                    live_calls:{' '}
+                    <span className="text-stone-900 font-bold">{telemetry.totalLiveCalls}</span>
+                  </p>
+                  <p className="text-stone-600">
+                    last_latency:{' '}
+                    <span className="text-stone-900 font-bold">
+                      {telemetry.lastLatencyMs !== null ? `${telemetry.lastLatencyMs} ms` : '—'}
+                    </span>
+                  </p>
+                  <p className="text-stone-600">
+                    tokens_used:{' '}
+                    <span className="text-stone-900 font-bold">
+                      {telemetry.totalTokens.toLocaleString()}
+                    </span>
+                  </p>
                 </div>
               </div>
-              <div className="pt-2 border-t border-emerald-200 text-[10px] text-emerald-950 font-medium">
-                Provenance: Live inference with SHA-256 byte digest
+              <div className="pt-2 border-t border-stone-200/80 text-[10px] text-stone-700 font-medium">
+                {hasLiveGeminiCalls
+                  ? 'Provenance: Real server-side @google/genai network calls observed in this session'
+                  : 'Provenance: Simulated offline fallback active until a valid GEMINI_API_KEY completes a call'}
               </div>
             </div>
 
-            {/* CARD 2: PREVIOUSLY VERIFIED */}
-            <div className="p-4 rounded-xl border border-blue-300 bg-blue-50/40 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-600 text-white font-bold tracking-wide">
-                    STATUS: PREVIOUSLY VERIFIED
-                  </span>
-                  <button
-                    onClick={() => handleRetryHealth('snowflake')}
-                    className="p-1 rounded text-stone-500 hover:text-stone-800 hover:bg-blue-100 transition"
-                    title="Re-verify Snowflake query"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${retryingProvider === 'snowflake' ? 'animate-spin text-blue-700' : ''}`} />
-                  </button>
-                </div>
-                <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                  <Database className="w-4 h-4 text-blue-700" />
-                  Snowflake CoCo Data
-                </h4>
-                <p className="text-[11px] text-stone-600 mt-1">
-                  Cortex Code weekday forecast querying 8 preceding ISO days with neighborhood pooling.
-                </p>
-                <div className="mt-2.5 bg-white p-2 rounded border border-blue-200 text-[10px] font-mono space-y-0.5">
-                  <p className="text-stone-500">query_id: <span className="text-stone-900 font-bold truncate block">01b8a92f-0004-3b1a...</span></p>
-                  <p className="text-stone-500">deficit: <span className="text-amber-800 font-bold">24 kg (Friday gap)</span></p>
-                  <p className="text-stone-500">method: <span className="text-blue-900 font-semibold">Preceding 8 ISO days</span></p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-blue-200 text-[10px] text-blue-950 font-medium">
-                Provenance: Snowflake Cortex executed receipt
-              </div>
-            </div>
-
-            {/* CARD 3: FIXTURE */}
-            <div className="p-4 rounded-xl border border-purple-300 bg-purple-50/40 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-600 text-white font-bold tracking-wide">
-                    STATUS: FIXTURE
-                  </span>
-                  <button
-                    onClick={() => handleRetryHealth('solana')}
-                    className="p-1 rounded text-stone-500 hover:text-stone-800 hover:bg-purple-100 transition"
-                    title="Refresh Devnet PDA accounts"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${retryingProvider === 'solana' ? 'animate-spin text-purple-700' : ''}`} />
-                  </button>
-                </div>
-                <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-purple-700" />
-                  Solana Devnet Registry
-                </h4>
-                <p className="text-[11px] text-stone-600 mt-1">
-                  QuantuLabs 8004 standard with ed25519 challenge and 20 * mean rating reputation score.
-                </p>
-                <div className="mt-2.5 bg-white p-2 rounded border border-purple-200 text-[10px] font-mono space-y-0.5">
-                  <p className="text-stone-500">grower_score: <span className="text-purple-900 font-bold">{growerProof.onchainVerification.reputationScore}/100</span></p>
-                  <p className="text-stone-500">buyer_score: <span className="text-purple-900 font-bold">{buyerProof.onchainVerification.reputationScore}/100</span></p>
-                  <p className="text-stone-500">cluster: <span className="text-stone-900 font-semibold">devnet</span></p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-purple-200 text-[10px] text-purple-950 font-medium">
-                Provenance: Deterministic Multan agent fixtures
-              </div>
-            </div>
-
-            {/* CARD 4: UNAVAILABLE / FALLBACK */}
+            {/* CARD 2: Snowflake CoCo */}
             <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-700 text-white font-bold tracking-wide">
-                    STATUS: UNAVAILABLE
-                  </span>
-                  <button
-                    onClick={() => handleRetryHealth('fallback')}
-                    className="p-1 rounded text-stone-500 hover:text-stone-800 hover:bg-amber-100 transition"
-                    title="Test fallback circuit breaker"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${retryingProvider === 'fallback' ? 'animate-spin text-amber-700' : ''}`} />
-                  </button>
+                  <SourceBadge source="simulated" />
                 </div>
                 <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-700" />
-                  Live Postgres / Supabase
+                  <Database className="w-4 h-4 text-blue-700 shrink-0" />
+                  <span>Snowflake CoCo Forecast</span>
                 </h4>
                 <p className="text-[11px] text-stone-600 mt-1">
-                  When optional live cloud credentials are omitted, returns typed configuration error without crashing.
+                  Local deterministic forecast model mirroring the 8-preceding-weekday SQL query on synthetic Multan census tracts.
                 </p>
-                <div className="mt-2.5 bg-white p-2 rounded border border-amber-200 text-[10px] font-mono space-y-0.5">
-                  <p className="text-stone-500">code: <span className="text-amber-800 font-bold">503 MISSING_CREDS</span></p>
-                  <p className="text-stone-500">sandbox: <span className="text-emerald-800 font-bold">Isolated &amp; Active</span></p>
-                  <p className="text-stone-500">circuit_breaker: <span className="text-stone-900 font-semibold">Graceful Fallback</span></p>
+                <div className="mt-2.5 bg-white p-2 rounded border border-amber-200 text-[10px] font-mono tabular-nums space-y-0.5">
+                  <p className="text-stone-600">
+                    query_id:{' '}
+                    <span className="text-stone-900 font-bold truncate block">
+                      {snowflakeReceipt.queryId}
+                    </span>
+                  </p>
+                  <p className="text-stone-600">
+                    deficit: <span className="text-amber-800 font-bold">24 kg (Friday gap)</span>
+                  </p>
+                  <p className="text-stone-600">
+                    method: <span className="text-stone-900 font-semibold">8 preceding Fridays</span>
+                  </p>
                 </div>
               </div>
               <div className="pt-2 border-t border-amber-200 text-[10px] text-amber-950 font-medium">
-                Provenance: Typed error payload with retry controls
+                Provenance: Simulated (Snowflake SQL Model &amp; Synthetic Data)
+              </div>
+            </div>
+
+            {/* CARD 3: Solana Registry */}
+            <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <SourceBadge source="simulated" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-purple-700 shrink-0" />
+                  <span>Solana Agent Registry</span>
+                </h4>
+                <p className="text-[11px] text-stone-600 mt-1">
+                  QuantuLabs 8004 identity &amp; 20x rating model computed locally in browser memory (no Solana RPC broadcast).
+                </p>
+                <div className="mt-2.5 bg-white p-2 rounded border border-amber-200 text-[10px] font-mono tabular-nums space-y-0.5">
+                  <p className="text-stone-600">
+                    grower_score:{' '}
+                    <span className="text-purple-900 font-bold">
+                      {growerProof.onchainVerification.reputationScore}/100
+                    </span>
+                  </p>
+                  <p className="text-stone-600">
+                    buyer_score:{' '}
+                    <span className="text-purple-900 font-bold">
+                      {buyerProof.onchainVerification.reputationScore}/100
+                    </span>
+                  </p>
+                  <p className="text-stone-600">
+                    transport: <span className="text-stone-900 font-semibold">Local Deterministic</span>
+                  </p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-amber-200 text-[10px] text-amber-950 font-medium">
+                Provenance: Simulated local PDAs &amp; deterministic reputation math
+              </div>
+            </div>
+
+            {/* CARD 4: Postgres / Supabase */}
+            <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <SourceBadge source="simulated" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Live Postgres / Supabase</span>
+                </h4>
+                <p className="text-[11px] text-stone-600 mt-1">
+                  Optional external DB credentials omitted in demo mode; Practice Market uses isolated local storage cleanly.
+                </p>
+                <div className="mt-2.5 bg-white p-2 rounded border border-amber-200 text-[10px] font-mono space-y-0.5">
+                  <p className="text-stone-600">
+                    status: <span className="text-amber-800 font-bold">Not Configured</span>
+                  </p>
+                  <p className="text-stone-600">
+                    sandbox: <span className="text-emerald-800 font-bold">Isolated &amp; Active</span>
+                  </p>
+                  <p className="text-stone-600">
+                    circuit_breaker: <span className="text-stone-900 font-semibold">Typed 503 Guard</span>
+                  </p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-amber-200 text-[10px] text-amber-950 font-medium">
+                Provenance: Simulated in-browser practice store
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* GitHub Copilot Acceleration Track Section */}
+      {/* Recorded Repository Implementation & Verification Section */}
       <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-stone-150">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-150">
           <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-stone-800" />
+            <Terminal className="w-4 h-4 text-stone-800 shrink-0" />
             <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
-              GitHub Copilot Acceleration — Verifiable Implementation Evidence
+              Repository Verification Modules
             </h3>
           </div>
-          <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-bold">
-            Track 4 • 3 Target Modules &amp; Test Suite
-          </span>
+          <SourceBadge source="recorded" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
           {/* Target 1: Spatial Distance */}
           <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
-            <span className="text-stone-900 font-bold block text-[11px]">
-              Target 1: lib/matching/distance.ts
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-stone-900 font-bold text-[11px]">
+                lib/matching/distance.ts
+              </span>
+              <SourceBadge source="recorded" />
+            </div>
             <p className="text-stone-600 font-sans text-xs">
-              <strong>Blocker:</strong> Out-of-bounds coords, zero-coord bugs, and unwanted transit speed claims.
+              Pure Haversine km calculation, explicit (0, 0) coordinate validation, and dashed map connector geometry without fake driving times.
             </p>
-            <p className="text-stone-700 font-sans text-[11px]">
-              <strong>Accepted Fix:</strong> Pure Haversine km, explicit 0,0 acceptance, dashed connector geometry, and proof verifying NO driving-time claim is generated.
-            </p>
-            <div className="text-[10px] text-emerald-800 font-bold pt-1 border-t border-stone-200">
-              Verified: tests/distance.test.ts (7/7 passed)
+            <div className="text-[10px] text-blue-900 font-bold pt-1 border-t border-stone-200">
+              Suite: tests/distance.test.ts
             </div>
           </div>
 
           {/* Target 2: Inventory Fixtures */}
           <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
-            <span className="text-stone-900 font-bold block text-[11px]">
-              Target 2: lib/fixtures/inventory.ts
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-stone-900 font-bold text-[11px]">
+                lib/fixtures/inventory.ts
+              </span>
+              <SourceBadge source="recorded" />
+            </div>
             <p className="text-stone-600 font-sans text-xs">
-              <strong>Blocker:</strong> Floating-point paisa rounding drift and inconsistent shortage arithmetic.
+              Strict integer grams and PKR paisa/kg pricing preventing float drift; 20 kg match leaves 10 kg on grower lot and 4 kg unmet store gap.
             </p>
-            <p className="text-stone-700 font-sans text-[11px]">
-              <strong>Accepted Fix:</strong> Strict integer grams &amp; PKR paisa/kg, 30 kg lot, Friday 24 kg shortage, and regression test: 20 kg allocation leaves 10 kg lot &amp; 4 kg unmet.
-            </p>
-            <div className="text-[10px] text-emerald-800 font-bold pt-1 border-t border-stone-200">
-              Verified: tests/inventory.test.ts (5/5 passed)
+            <div className="text-[10px] text-blue-900 font-bold pt-1 border-t border-stone-200">
+              Suite: tests/inventory.test.ts
             </div>
           </div>
 
           {/* Target 3: Snowflake ETL Import */}
           <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
-            <span className="text-stone-900 font-bold block text-[11px]">
-              Target 3: scripts/import-local-data.ts
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-stone-900 font-bold text-[11px]">
+                scripts/import-local-data.ts
+              </span>
+              <SourceBadge source="recorded" />
+            </div>
             <p className="text-stone-600 font-sans text-xs">
-              <strong>Blocker:</strong> Re-importing census extracts doubled demographic demand counts in Snowflake.
+              Idempotent census ingestion across 4 table grains preserving observed zeros without double-counting historical store demand.
             </p>
-            <p className="text-stone-700 font-sans text-[11px]">
-              <strong>Accepted Fix:</strong> 4 Snowflake table grains, distinguishes missing from observed 0, unit validation, and idempotent upsert preventing demand inflation.
-            </p>
-            <div className="text-[10px] text-emerald-800 font-bold pt-1 border-t border-stone-200">
-              Verified: tests/import-data.test.ts (4/4 passed)
+            <div className="text-[10px] text-blue-900 font-bold pt-1 border-t border-stone-200">
+              Suite: tests/import-data.test.ts
             </div>
           </div>
         </div>
       </div>
 
-      {/* Verifiable Agent Registry PDAs & Devnet Explorer Links */}
+      {/* Deterministic Solana Agent Identity Previews (No fake explorer URLs) */}
       <div className="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-150">
-          <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-purple-800 shrink-0" />
-            <span>QuantuLabs 8004 Solana Devnet Agent Proofs</span>
-          </h3>
-          <span className="text-xs font-mono text-purple-900 font-semibold">
-            Cluster: devnet (api.devnet.solana.com)
-          </span>
+            <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
+              QuantuLabs 8004 Agent Identity Registry (Local Simulation)
+            </h3>
+          </div>
+          <SourceBadge source="simulated" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
@@ -345,22 +369,31 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
               </span>
             </div>
             <div className="text-[11px] space-y-1 text-stone-600 tabular-nums">
-              <p className="break-all">Wallet Pubkey: <span className="text-stone-900 font-bold">{buyerProof.solanaPubkey}</span></p>
-              <p className="break-all">Account PDA: <span className="text-stone-800">{buyerProof.onchainVerification.accountPda}</span></p>
-              <p>Confirmed Slot: <span className="text-stone-800">{buyerProof.onchainVerification.verifiedSlot}</span></p>
-              <p>Completed Trades: <span className="text-stone-800">{buyerProof.onchainVerification.totalCompletedTrades}</span></p>
-              <a
-                href={buyerProof.onchainVerification.explorerUrl || `https://explorer.solana.com/address/${buyerProof.onchainVerification.accountPda}?cluster=devnet`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-purple-700 hover:text-purple-900 inline-flex items-center gap-1 font-semibold pt-1"
-              >
-                Inspect on Solana Explorer <ExternalLink className="w-3 h-3" />
-              </a>
+              <p className="break-all">
+                Wallet Pubkey:{' '}
+                <span className="text-stone-900 font-bold">{buyerProof.solanaPubkey}</span>
+              </p>
+              <p className="break-all">
+                Simulated Account PDA:{' '}
+                <span className="text-stone-800">{buyerProof.onchainVerification.accountPda}</span>
+              </p>
+              <p>
+                Simulated Slot:{' '}
+                <span className="text-stone-800">{buyerProof.onchainVerification.verifiedSlot}</span>
+              </p>
+              <p>
+                Completed Trades:{' '}
+                <span className="text-stone-800">
+                  {buyerProof.onchainVerification.totalCompletedTrades}
+                </span>
+              </p>
+              <p className="text-[10px] font-sans text-amber-900 pt-1">
+                Simulated local PDA — not broadcast to Solana Devnet RPC.
+              </p>
             </div>
           </div>
 
-          {/* Grower Fatima */}
+          {/* Grower Bibi Fatima */}
           <div className="p-4 rounded-lg bg-stone-50 border border-stone-200 space-y-2 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-bold text-stone-900">Grower Agent: Bibi Fatima</span>
@@ -369,35 +402,52 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
               </span>
             </div>
             <div className="text-[11px] space-y-1 text-stone-600 tabular-nums">
-              <p className="break-all">Wallet Pubkey: <span className="text-stone-900 font-bold">{growerProof.solanaPubkey}</span></p>
-              <p className="break-all">Account PDA: <span className="text-stone-800">{growerProof.onchainVerification.accountPda}</span></p>
-              <p>Confirmed Slot: <span className="text-stone-800">{growerProof.onchainVerification.verifiedSlot}</span></p>
-              <p>Completed Trades: <span className="text-stone-800">{growerProof.onchainVerification.totalCompletedTrades}</span></p>
-              <a
-                href={growerProof.onchainVerification.explorerUrl || `https://explorer.solana.com/address/${growerProof.onchainVerification.accountPda}?cluster=devnet`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-purple-700 hover:text-purple-900 inline-flex items-center gap-1 font-semibold pt-1"
-              >
-                Inspect on Solana Explorer <ExternalLink className="w-3 h-3" />
-              </a>
+              <p className="break-all">
+                Wallet Pubkey:{' '}
+                <span className="text-stone-900 font-bold">{growerProof.solanaPubkey}</span>
+              </p>
+              <p className="break-all">
+                Simulated Account PDA:{' '}
+                <span className="text-stone-800">{growerProof.onchainVerification.accountPda}</span>
+              </p>
+              <p>
+                Simulated Slot:{' '}
+                <span className="text-stone-800">{growerProof.onchainVerification.verifiedSlot}</span>
+              </p>
+              <p>
+                Completed Trades:{' '}
+                <span className="text-stone-800">
+                  {growerProof.onchainVerification.totalCompletedTrades}
+                </span>
+              </p>
+              <p className="text-[10px] font-sans text-amber-900 pt-1">
+                Simulated local PDA — not broadcast to Solana Devnet RPC.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Raw Snowflake Query Audit Receipt */}
+      {/* Simulated Snowflake Query Audit Receipt */}
       <div className="bg-stone-900 text-[#FAF7F2] rounded-xl p-6 shadow-md space-y-3 font-mono text-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-emerald-400 font-bold flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-emerald-400" />
-            Snowflake Cortex Code Query Receipt (snowflake/002_deficit_forecast_cortex.sql)
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-emerald-400 font-bold flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Snowflake Deficit Forecast SQL Reference (snowflake/002_deficit_forecast_cortex.sql)</span>
+            </span>
+            <SourceBadge source="simulated" />
+          </div>
           <button
+            type="button"
             onClick={() => handleCopy('snowflake', snowflakeReceipt.rawSql)}
-            className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1 min-h-[36px] px-2 rounded text-[11px] text-stone-300 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-400"
           >
-            {copiedKey === 'snowflake' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedKey === 'snowflake' ? (
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
             <span>{copiedKey === 'snowflake' ? 'Copied' : 'Copy SQL'}</span>
           </button>
         </div>
@@ -406,10 +456,12 @@ export function EvidenceDesk({ tourHighlightSignal = 0 }: { tourHighlightSignal?
           {snowflakeReceipt.rawSql}
         </pre>
 
-        <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-800">
-          <span>Execution Time: {snowflakeReceipt.executionTimeMs} ms</span>
-          <span>Warehouse: {snowflakeReceipt.warehouse}</span>
-          <span className="text-amber-400 font-bold">source: "Live Snowflake query &amp; Synthetic data"</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-400 pt-2 border-t border-stone-800 tabular-nums">
+          <span>Simulated Duration: {snowflakeReceipt.executionTimeMs} ms</span>
+          <span>Warehouse Reference: {snowflakeReceipt.warehouse}</span>
+          <span className="text-amber-300 font-bold">
+            Source: {snowflakeReceipt.receiptStatus === 'Live' ? 'Live Snowflake Network' : 'Simulated (Snowflake SQL Model & Synthetic Data)'}
+          </span>
         </div>
       </div>
     </div>

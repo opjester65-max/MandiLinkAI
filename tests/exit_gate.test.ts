@@ -119,5 +119,91 @@ export async function runExitGateTests() {
   assert(conflictBlocked, 'Stock conflict must block proposals exceeding available 10kg');
   console.log('✓ Test 10: Stock conflict prevented; remaining inventory protected');
 
-  console.log('✓ All 10 Exit Gate Tests Passed Successfully!\n');
+  // 11. Prompt Sync, Oversize Rejection, Blurry Classification & Server Handler Auth/Sandbox Checks
+  const fs = await import('fs');
+  const path = await import('path');
+  const { VISION_BASE_SYSTEM_PROMPT } = await import('../lib/providers/aiSpecs.ts');
+  const { handleGradeUpload, handleTradeAssist } = await import('../lib/api/handlers.ts');
+  const { MAX_IMAGE_SIZE_BYTES } = await import('../lib/providers/gemmaGrade.ts');
+
+  const diskPrompt = fs.readFileSync(path.resolve(process.cwd(), 'prompts/grade.txt'), 'utf-8').trim();
+  assert(
+    diskPrompt === VISION_BASE_SYSTEM_PROMPT,
+    'prompts/grade.txt must match VISION_BASE_SYSTEM_PROMPT in aiSpecs.ts'
+  );
+
+  // Oversize check (>3 MiB)
+  const overLimitBuf = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(MAX_IMAGE_SIZE_BYTES + 16),
+  ]);
+  const oversizeCheck = validateAndNormalizeImage(overLimitBuf);
+  assert(!oversizeCheck.valid, 'Images > 3 MiB must be rejected');
+
+  // Blurry image keyword/fallback check
+  const blurryPng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+  );
+  const blurryGrade = await gradeImageWithGemma(blurryPng, 'en-PK', true, 'blurry_tomato_crate.jpg');
+  assert(blurryGrade.output.produce === 'unknown', 'Blurry image must produce produce=unknown');
+  assert(blurryGrade.output.visualGrade === 'uncertain', 'Blurry image must produce visualGrade=uncertain');
+  assert(blurryGrade.output.reviewRequired === true, 'Blurry image must require human review');
+  assert(
+    blurryGrade.output.executionMode === 'Simulated (No API Key)',
+    'Offline grade must be labeled Simulated (No API Key)'
+  );
+
+  // Bibi Fatima (grower) succeeds, Tariq (buyer) blocked 403
+  const buyerUpload = await handleGradeUpload(
+    blurryPng,
+    'en-PK',
+    FIXTURE_IDS.buyerTariq,
+    false,
+    'tomato.png'
+  );
+  assert(buyerUpload.status === 403, `Expected 403 for buyer role, got ${buyerUpload.status}`);
+
+  const growerUpload = await handleGradeUpload(
+    blurryPng,
+    'en-PK',
+    FIXTURE_IDS.growerFatima,
+    false,
+    'sample_multan_tomatoes.png'
+  );
+  assert(growerUpload.status === 200, `Expected 200 for grower Bibi Fatima, got ${growerUpload.status}`);
+
+  // Client-only sandbox tradeId works via sandboxContext (no 404)
+  const clientSandboxAssist = await handleTradeAssist(
+    '99999999-9999-4999-8999-999999999999',
+    {
+      intent: 'counter',
+      locale: 'ur-PK',
+      instruction: 'Urdu bazaar offer',
+      sandboxContext: {
+        produce: 'tomato',
+        availableG: 30000,
+        askPaisaKg: 12000,
+      },
+    },
+    FIXTURE_IDS.buyerTariq
+  );
+  assert(
+    clientSandboxAssist.status === 200,
+    `Expected 200 for client sandboxContext trade assist, got ${clientSandboxAssist.status}`
+  );
+  assert(
+    (clientSandboxAssist.body as any).data.executionMode === 'Simulated (No API Key)',
+    'Without valid key, bargaining assist must be labeled Simulated (No API Key)'
+  );
+  const { CreateTradeRequestSchema } = await import('../lib/contracts/index.ts');
+  const fixtureTradeParse = CreateTradeRequestSchema.safeParse({
+    listingId: FIXTURE_IDS.listingChenabTomato,
+    storeId: FIXTURE_IDS.storeGulgasht,
+  });
+  assert(fixtureTradeParse.success, 'CreateTradeRequestSchema must accept deterministic fixture UUIDs');
+
+  console.log('✓ Test 11: Prompt sync, >3 MiB rejection, blurry classification, grower auth, sandbox assist & fixture UUID schema verified');
+
+  console.log('✓ All 11 Exit Gate Tests Passed Successfully!\n');
 }

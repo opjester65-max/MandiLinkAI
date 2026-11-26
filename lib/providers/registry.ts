@@ -19,7 +19,7 @@ export interface AgentRegistryRecord {
     reputationScore: number; // 0-100 (20 * mean rating)
     totalCompletedTrades: number;
     disputeRatePct: number;
-    receiptStatus: 'Live' | 'Fixture';
+    receiptStatus: 'Live' | 'Simulated';
     signature: string;
     explorerUrl?: string;
   };
@@ -58,7 +58,7 @@ export interface FeedbackOnChainReceipt {
   deliveryOnTime: boolean;
   produceQualityVerified: boolean;
   solanaTxSignature: string;
-  receiptStatus: 'Live' | 'Fixture';
+  receiptStatus: 'Live' | 'Simulated';
   slot: number;
 }
 
@@ -83,8 +83,8 @@ export function recordOnChainFeedback(
     ratingScore: fb.rating ?? rating,
     deliveryOnTime: true,
     produceQualityVerified: true,
-    solanaTxSignature: fb.signature || '5FbSig_verified',
-    receiptStatus: 'Live',
+    solanaTxSignature: fb.signature || 'sim_fb_sig_verified',
+    receiptStatus: 'Simulated',
     slot: fb.confirmedSlot || 284192250,
   };
 }

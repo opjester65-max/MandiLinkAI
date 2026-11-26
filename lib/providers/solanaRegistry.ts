@@ -84,7 +84,7 @@ export interface AgentReputationSummary {
   confirmedSlot: number;
   registrationSig: string;
   metadataUri: string;
-  explorerUrl: string;
+  explorerUrl?: string;
   reputationScore: number; // 0..100 = 20 * mean(ratings)
   totalFeedbackCount: number;
   averageRating: number;
@@ -96,7 +96,7 @@ export interface AgentReputationSummary {
     rating5: number;
   };
   feedbackHistory: TradeFeedbackRecord[];
-  receiptStatus: 'Live' | 'Fixture';
+  receiptStatus: 'Live' | 'Simulated';
 }
 
 // In-memory persistent state for Sandbox & Devnet execution
@@ -409,8 +409,6 @@ export function getAgentReputationProof(
   // Formal score formula: 20 * arithmetic mean of confirmed 1..5 ratings
   const reputationScore = Math.min(100, Math.round(meanRating * 20));
 
-  const explorerUrl = `https://explorer.solana.com/address/${identity.accountPda}?cluster=devnet`;
-
   return {
     agentId,
     displayName: identity.displayName,
@@ -421,13 +419,13 @@ export function getAgentReputationProof(
     confirmedSlot: identity.confirmedSlot,
     registrationSig: identity.registrationSig,
     metadataUri: identity.metadataUri,
-    explorerUrl,
+    explorerUrl: undefined,
     reputationScore,
     totalFeedbackCount: count,
     averageRating: Math.round(meanRating * 10) / 10,
     ratingsBreakdown: breakdown,
     feedbackHistory: relevantFeedback,
-    receiptStatus: relevantFeedback.length > 0 ? 'Live' : 'Fixture',
+    receiptStatus: 'Simulated',
   };
 }
 
@@ -439,7 +437,7 @@ export function seedInitialSolanaIdentities(): void {
     FIXTURE_IDS.buyerTariq,
     'B1uY3r7ariqGu1gashtMultanSo1anaPubk3y1111',
     'buyer',
-    'Tariq Mehmood (Corner Store Operator)',
+    'Tariq Mehmood',
     '5J8wBuyerRegSig11111111111111111111111111111111'
   );
 
@@ -447,7 +445,7 @@ export function seedInitialSolanaIdentities(): void {
     FIXTURE_IDS.growerFatima,
     'Gr0w3rFatimaCh3nabMultanSo1anaPubk3y2222',
     'grower',
-    'Bibi Fatima (Chenab Community Garden)',
+    'Bibi Fatima',
     '5K9xGrowerRegSig22222222222222222222222222222222'
   );
 

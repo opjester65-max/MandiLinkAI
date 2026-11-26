@@ -48,8 +48,15 @@ export function MatchList({
             <div
               key={match.id}
               role="listitem"
+              tabIndex={0}
               onClick={() => onSelectMatch(match.id)}
-              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer focus-within:ring-2 focus-within:ring-stone-900 ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectMatch(match.id);
+                }
+              }}
+              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-stone-900 ${
                 isSelected
                   ? 'bg-purple-50/40 border-[#4A154B] shadow-sm ring-1 ring-[#4A154B]'
                   : 'bg-white border-stone-200 hover:border-stone-300 hover:-translate-y-0.5 hover:shadow-md'
@@ -76,7 +83,7 @@ export function MatchList({
                   </p>
 
                   {/* Quantitative Metrics Bar */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600 mt-2 font-medium">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600 mt-2 font-medium tabular-nums">
                     <div className="flex items-center gap-1">
                       <span>Available:</span>
                       <Quantity grams={listing.availableG} className="text-emerald-800 font-bold" />
@@ -99,11 +106,12 @@ export function MatchList({
                 {/* Right: One Obvious Next Action */}
                 <div className="sm:text-right shrink-0">
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onStartTrade(listing.id, gap.storeId);
                     }}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 text-white font-semibold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700"
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 text-white font-semibold text-xs hover:bg-emerald-900 transition-colors cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700"
                   >
                     <span>Start Bargaining</span>
                     <ArrowRight className="w-3.5 h-3.5" />

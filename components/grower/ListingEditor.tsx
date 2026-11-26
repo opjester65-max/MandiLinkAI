@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { ProduceCode, calculateTotalPaisa, pkrToPaisa } from '../../lib/contracts';
+import { ProduceCode } from '../../lib/contracts';
 import { GradingReceipt } from '../../lib/providers/grading';
-import { Sprout, Check, ShieldCheck, MapPin, Calendar, Clock, DollarSign } from 'lucide-react';
-import { Money } from '../shared/Money';
+import { Sprout, Check, AlertTriangle } from 'lucide-react';
 
 interface ListingEditorProps {
   initialProduce: ProduceCode;
@@ -21,6 +20,8 @@ interface ListingEditorProps {
   isPublishing?: boolean;
 }
 
+const URDU_REGEX = /[\u0600-\u06FF]/;
+
 export function ListingEditor({
   initialProduce,
   gradeReceipt,
@@ -35,6 +36,7 @@ export function ListingEditor({
     gradeReceipt?.description ||
       'Morning-picked vine-ripened tomatoes, Grade A certified by local visual inspection. Available for afternoon dispatch.'
   );
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (gradeReceipt) {
@@ -60,13 +62,27 @@ export function ListingEditor({
   const [pickupHours, setPickupHours] = useState<number>(24);
 
   const totalLotPkr = availableKg * askPkrKg;
+  const descHasUrdu = URDU_REGEX.test(description);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+    if (!Number.isFinite(availableKg) || availableKg <= 0 || availableKg > 1000) {
+      setValidationError('Enter a valid quantity between 1 and 1,000 kg.');
+      return;
+    }
+    if (!Number.isFinite(askPkrKg) || askPkrKg < 10 || askPkrKg > 5000) {
+      setValidationError('Enter a valid asking price between PKR 10 and PKR 5,000 per kg.');
+      return;
+    }
+    if (description.trim().length < 5) {
+      setValidationError('Batch description must be at least 5 characters.');
+      return;
+    }
     const pickupUntil = new Date(Date.now() + pickupHours * 3600000).toISOString();
     onPublish({
       produce,
-      description,
+      description: description.trim(),
       availableKg,
       askPkrKg,
       pickupLat,
@@ -78,18 +94,28 @@ export function ListingEditor({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
-      <div className="flex items-center justify-between pb-3 border-b border-stone-150">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-stone-150">
         <div>
           <h3 className="text-sm font-bold text-stone-900 tracking-tight flex items-center gap-2">
             <Sprout className="w-4 h-4 text-emerald-800" />
-            Publish Surplus Produce Listing
+            <span>Publish Surplus Produce Listing</span>
           </h3>
-          <p className="text-xs text-stone-500 mt-0.5">Chenab Community Garden (Bibi Fatima)</p>
+          <p className="text-xs text-stone-600 mt-0.5">Bibi Fatima · Chenab Community Garden</p>
         </div>
         <span className="text-xs font-mono font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded">
           Idempotent UUID Header Enforced
         </span>
       </div>
+
+      {validationError && (
+        <div
+          role="alert"
+          className="p-2.5 rounded-lg bg-red-50 border border-red-300 text-red-900 text-xs flex items-center gap-2"
+        >
+          <AlertTriangle className="w-4 h-4 text-red-700 shrink-0" />
+          <span>{validationError}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Produce Code */}
@@ -98,7 +124,7 @@ export function ListingEditor({
           <select
             value={produce}
             onChange={(e) => setProduce(e.target.value as ProduceCode)}
-            className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white font-medium focus-visible:ring-2 focus-visible:ring-emerald-700"
+            className="w-full min-h-[44px] px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white font-medium focus-visible:ring-2 focus-visible:ring-emerald-700"
           >
             <option value="tomato">Tomatoes (Tamatar) — High perishable</option>
             <option value="spinach">Spinach (Palak) — Fast wilting</option>
@@ -118,9 +144,11 @@ export function ListingEditor({
               max="1000"
               value={availableKg}
               onChange={(e) => setAvailableKg(Math.max(1, parseInt(e.target.value || '1', 10)))}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
+              className="w-full min-h-[44px] px-3 py-2 text-xs font-mono tabular-nums font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
             />
-            <span className="absolute right-3 top-2 text-xs text-stone-500 font-medium">kg ({availableKg * 1000} g)</span>
+            <span className="absolute right-3 top-3 text-xs text-stone-500 font-medium tabular-nums">
+              kg ({(availableKg * 1000).toLocaleString()} g)
+            </span>
           </div>
         </div>
 
@@ -136,9 +164,9 @@ export function ListingEditor({
               max="5000"
               value={askPkrKg}
               onChange={(e) => setAskPkrKg(Math.max(1, parseInt(e.target.value || '1', 10)))}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
+              className="w-full min-h-[44px] px-3 py-2 text-xs font-mono tabular-nums font-bold rounded-lg border border-stone-300 bg-white focus-visible:ring-2 focus-visible:ring-emerald-700"
             />
-            <span className="absolute right-3 top-2 text-xs text-stone-500 font-medium">
+            <span className="absolute right-3 top-3 text-xs text-stone-500 font-medium tabular-nums">
               paisa: {(askPkrKg * 100).toLocaleString()}
             </span>
           </div>
@@ -152,7 +180,7 @@ export function ListingEditor({
           <select
             value={pickupHours}
             onChange={(e) => setPickupHours(parseInt(e.target.value, 10))}
-            className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white font-medium focus-visible:ring-2 focus-visible:ring-emerald-700"
+            className="w-full min-h-[44px] px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white font-medium focus-visible:ring-2 focus-visible:ring-emerald-700"
           >
             <option value="6">Next 6 hours (Urgent dispatch)</option>
             <option value="12">Next 12 hours (Today's market)</option>
@@ -169,12 +197,16 @@ export function ListingEditor({
           rows={2}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white text-stone-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
+          dir={descHasUrdu ? 'rtl' : 'ltr'}
+          lang={descHasUrdu ? 'ur' : 'en'}
+          className={`w-full px-3 py-2 text-xs rounded-lg border border-stone-300 bg-white text-stone-800 focus-visible:ring-2 focus-visible:ring-emerald-700 ${
+            descHasUrdu ? 'font-urdu text-sm leading-relaxed' : ''
+          }`}
         />
       </div>
 
       {/* Financial Preview Box */}
-      <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
+      <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200 flex items-center justify-between text-xs tabular-nums">
         <div>
           <span className="text-emerald-900 font-bold block">Estimated Lot Value</span>
           <span className="text-stone-600 text-[11px]">
@@ -195,7 +227,7 @@ export function ListingEditor({
       <button
         type="submit"
         disabled={isPublishing}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer disabled:opacity-50 shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700"
+        className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors cursor-pointer disabled:opacity-50 shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-700"
       >
         <Check className="w-4 h-4" />
         <span>{isPublishing ? 'Publishing to Market...' : 'Publish Listing to Multan Market'}</span>
